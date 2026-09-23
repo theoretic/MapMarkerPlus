@@ -1,73 +1,68 @@
-.InputfieldMapMarker input[type=number], 
-.InputfieldMapMarker input[type=text] {
-	width: 99.5%; 
+.InputfieldMapMarkerPlusInputs {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	gap: 0.5em 1em;
+	align-items: end;
+	margin-bottom: 0.75em;
 }
 
-.InputfieldMapMarkerToggle span {
-	display: none; 
+.InputfieldMapMarkerPlusInputs label {
+	display: block;
+	font-weight: bold;
+	margin-bottom: 0.2em;
 }
 
-.InputfieldMapMarkerAddress {
-	float: left; 
-	width: 70%; 
-	padding-right: 2%; 
+.InputfieldMapMarkerPlusInputs input[type=text],
+.InputfieldMapMarkerPlusInputs input[type=number] {
+	width: 100%;
+	box-sizing: border-box;
 }
 
-.InputfieldMapMarkerToggle {
-	float: left; 
-	width: 28%; 
+.InputfieldMapMarkerPlusToggle label {
+	display: flex;
+	align-items: center;
+	gap: 0.35em;
+	font-weight: normal;
+	white-space: nowrap;
+	padding-bottom: 0.4em;
+	cursor: pointer;
 }
 
-.InputfieldMapMarkerLat,
-.InputfieldMapMarkerLng {
-	width: 42%; 
-	float: left; 
-	padding-right: 2%; 
+.InputfieldMapMarkerPlusAddress {
+	grid-column: 1;
 }
 
-.InputfieldMapMarkerZoom {
-	float: left; 
-	width: 10%; 
-}
-
-.InputfieldMapMarker .notes {
-	clear: both; 
-}
-
-.InputfieldMapMarkerMap {
-	width: 100%; 
-	height: 300px; 
-	clear: left;
+.InputfieldMapMarkerPlusLat,
+.InputfieldMapMarkerPlusLng,
+.InputfieldMapMarkerPlusZoom {
+	grid-column: span 2;
 }
 
 @media only screen and (min-width: 768px) {
-
-	.InputfieldMapMarkerAddress {
-		width: 38%; 
-		padding-right: 1%; 
+	.InputfieldMapMarkerPlusInputs {
+		grid-template-columns: minmax(0, 3fr) auto minmax(0, 1.4fr) minmax(0, 1.4fr) minmax(4em, 0.6fr);
 	}
-
-	.InputfieldMapMarkerToggle {
-		width: 2%; 
-		padding-right: 0.5%; 
-		position: relative;
+	.InputfieldMapMarkerPlusLat,
+	.InputfieldMapMarkerPlusLng,
+	.InputfieldMapMarkerPlusZoom {
+		grid-column: auto;
 	}
-
-	.InputfieldMapMarkerToggle strong {
-		/* hide geocode label */
-		display: none; 
-	}
-
-	.InputfieldMapMarkerLat,
-	.InputfieldMapMarkerLng {
-		width: 23%; 
-		padding-right: 1%; 
-	}
-
-	.InputfieldMapMarkerZoom {
-		float: left; 
-		width: 9.5%; 
-	}
-
 }
 
+.InputfieldMapMarkerPlusMap {
+	width: 100%;
+	height: 300px;
+	position: relative;
+	background: #eef0f2;
+	border-radius: 3px;
+	overflow: hidden;
+}
+
+.InputfieldMapMarkerPlusMap[aria-busy=true] {
+	cursor: progress;
+}
+
+.InputfieldMapMarkerPlusStatus {
+	min-height: 1.4em;
+	margin: 0.4em 0 0;
+}
