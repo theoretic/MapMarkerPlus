@@ -30,6 +30,7 @@
  * @property string $defaultLng
  * @property int $defaultZoom
  * @property int $defaultHeight Map height in pixels for fields without their own height
+ * @property bool|int $ctrlScrollZoom Zoom with Ctrl + mouse wheel only (plain wheel scrolls the page)
  * @property string $geocodeLang
  * @property int $cacheTtl
  * @property string $terrainTiles
@@ -123,6 +124,7 @@ class FieldtypeMapMarkerPlus extends Fieldtype implements ConfigurableModule {
 			'defaultLng' => '0',
 			'defaultZoom' => 2,
 			'defaultHeight' => 450,
+			'ctrlScrollZoom' => 0,
 			'geocodeLang' => '',
 			'cacheTtl' => 2592000,
 			'terrainTiles' => 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png',
@@ -762,6 +764,7 @@ class FieldtypeMapMarkerPlus extends Fieldtype implements ConfigurableModule {
 			'allowModeToggle' => isset($options['allowModeToggle']) ? (bool) $options['allowModeToggle'] : ($field ? (bool) $field->get('allowModeToggle') : false),
 			'allowStyleSwitch' => isset($options['allowStyleSwitch']) ? (bool) $options['allowStyleSwitch'] : ($field ? (bool) $field->get('allowStyleSwitch') : false),
 			'lang' => $this->getLang(),
+			'scrollZoom' => $this->ctrlScrollZoom ? 'cooperative' : true,
 			'keys' => array(),
 			'defaultLat' => (float) $this->defaultLat,
 			'defaultLng' => (float) $this->defaultLng,
@@ -1135,6 +1138,16 @@ class FieldtypeMapMarkerPlus extends Fieldtype implements ConfigurableModule {
 		$f->description = $this->_('Used by the page editor and by MarkupMapMarkerPlus for fields without a height of their own (field > Input tab).');
 		$f->attr('value', $this->getDefaultHeight());
 		$f->attr('min', 100);
+		$f->columnWidth = 50;
+		$fs->add($f);
+
+		/** @var InputfieldCheckbox $f */
+		$f = $modules->get('InputfieldCheckbox');
+		$f->attr('name', 'ctrlScrollZoom');
+		$f->label = $this->_('Ctrl + scroll to zoom');
+		$f->description = $this->_('When checked, the mouse wheel zooms the map only with Ctrl held (plain scrolling scrolls the page). When unchecked, the wheel zooms the map directly.');
+		$f->notes = $this->_('Yandex Maps has no Ctrl mode: with this option its wheel zoom is off (use the +/− buttons).');
+		$f->attr('checked', $this->ctrlScrollZoom ? 'checked' : '');
 		$f->columnWidth = 50;
 		$fs->add($f);
 

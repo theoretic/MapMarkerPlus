@@ -25,6 +25,7 @@ The template API is unchanged.
   `markerCallback`, `scrollZoom`, `lazy`, `attrs`; hook `MarkupMapMarkerPlus::getMarkerData`.
 - Selectors on `lat`, `lng`, `zoom`, `status` subfields; `___markupValue()` for Lister.
 - Array values: `$page->map = ['lat' => .., 'lng' => ..]`.
+- Module setting "Ctrl + scroll to zoom" (off by default: the mouse wheel zooms the map directly).
 - Module setting "Default map height" (450 px, was a fixed 300 px); the field height on the Input tab is optional (0 = module default).
 
 ### Changed

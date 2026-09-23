@@ -34,6 +34,7 @@ ProcessWire 3.0.200+, PHP 7.4+. No node on the server: the built scripts are in 
 | Default map provider / geocoder | Used by fields set to "Default" |
 | Default latitude / longitude / zoom | Map view for empty values when the field has no default location |
 | Default map height | Height in pixels (450) for fields whose *Input* tab height is 0 |
+| Ctrl + scroll to zoom | Off: the mouse wheel zooms the map. On: only Ctrl + wheel zooms (Yandex: wheel zoom off) |
 | Language | Two-letter code for geocoding results and map labels (blank: the user's language, if its name is a two-letter code) |
 | Geocode cache lifetime | Successful results are cached in WireCache (30 days by default) |
 | Google: Maps key, Geocoding key, Map ID | Browser key (restrict by referrer), server key (restrict by IP), Map ID for vector maps (3D, advanced markers) |
@@ -118,7 +119,7 @@ and echo `$map->renderScript()` yourself to place it elsewhere.
 ```
 
 Attributes: `provider`, `map-style`, `mode`, `zoom`, `lat`, `lng`, `lang`, `api-key`, `map-id`, `overlays`, `cluster`
-(or JSON `{"radius":50,"maxZoom":14}`), `fit`, `popup`, `lazy`, `scroll-zoom`, `hover-box`, `allow-mode-toggle`,
+(or JSON `{"radius":50,"maxZoom":14}`), `fit`, `popup`, `lazy`, `scroll-zoom` (`true`, `false` or `ctrl`), `hover-box`, `allow-mode-toggle`,
 `allow-style-switch`, `interactive`, `data-init` (global function called with the element).
 Events: `mmp:ready`, `mmp:markerclick` (cancelable, `detail` = marker data), `mmp:error`.
 Properties: `el.provider` (the map adapter, `el.provider.getNative()` is the MapLibre/Google/Yandex map), `el.addMarker()`, `el.fitToMarkers()`.

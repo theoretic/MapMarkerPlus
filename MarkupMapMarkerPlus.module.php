@@ -47,7 +47,8 @@
  * icon, iconHover            URL of marker icons
  * allowModeToggle            Show a 2D/3D switch (default: field setting)
  * allowStyleSwitch           Show a style switch (default: field setting)
- * scrollZoom                 Zoom with the mouse wheel (default: false)
+ * scrollZoom                 true = wheel zooms, 'cooperative' = Ctrl + wheel, false = no wheel zoom
+ *                            (default: module setting "Ctrl + scroll to zoom")
  * lazy                       Load the map when it scrolls into view (default: true)
  * init                       Name of a global JS function, or JS code, run with the element when the map is ready
  * script                     Output the module script tag with the first map (default: true)
@@ -163,7 +164,7 @@ class MarkupMapMarkerPlus extends WireData implements Module {
 			'iconHover' => '',
 			'allowModeToggle' => (bool) $field->get('allowModeToggle'),
 			'allowStyleSwitch' => (bool) $field->get('allowStyleSwitch'),
-			'scrollZoom' => false,
+			'scrollZoom' => null,
 			'lazy' => true,
 			'init' => '',
 			'script' => true,
@@ -229,7 +230,7 @@ class MarkupMapMarkerPlus extends WireData implements Module {
 			'hoverBox' => $options['useHoverBox'] ? (string) $options['hoverBoxMarkup'] : '',
 			'icon' => (string) $options['icon'],
 			'iconHover' => (string) $options['iconHover'],
-			'scrollZoom' => (bool) $options['scrollZoom'],
+			'scrollZoom' => $options['scrollZoom'] === null ? $client['scrollZoom'] : ($options['scrollZoom'] === 'cooperative' ? 'cooperative' : (bool) $options['scrollZoom']),
 			'lazy' => (bool) $options['lazy'],
 		));
 

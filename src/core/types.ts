@@ -47,6 +47,8 @@ export interface ClientConfig {
   allowModeToggle: boolean;
   allowStyleSwitch: boolean;
   lang: string;
+  /** true = wheel zooms, 'cooperative' = Ctrl + wheel, false = no wheel zoom */
+  scrollZoom?: boolean | 'cooperative';
   keys: ProviderKeys;
   defaultLat: number;
   defaultLng: number;

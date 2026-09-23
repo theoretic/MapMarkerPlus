@@ -89,7 +89,7 @@ export class MarkerEditor {
         overlaySources: c.overlaySources,
         overlays: c.overlays,
         terrain: c.terrain,
-        scrollZoom: 'cooperative',
+        scrollZoom: c.scrollZoom ?? true,
         interactive: true,
       });
     } catch (e) {

@@ -25,7 +25,6 @@ export interface ElementOptions extends Partial<ClientConfig> {
   hoverBox?: string;
   icon?: string;
   iconHover?: string;
-  scrollZoom?: boolean;
   lazy?: boolean;
   interactive?: boolean;
 }
@@ -128,7 +127,6 @@ export class MapMarkerPlusElement extends HTMLElement {
       ['fit', 'fit'],
       ['popup', 'popup'],
       ['lazy', 'lazy'],
-      ['scroll-zoom', 'scrollZoom'],
       ['allow-mode-toggle', 'allowModeToggle'],
       ['allow-style-switch', 'allowStyleSwitch'],
       ['interactive', 'interactive'],
@@ -137,6 +135,8 @@ export class MapMarkerPlusElement extends HTMLElement {
       const v = boolAttr(a(attr));
       if (v !== undefined) (o as Record<string, unknown>)[key] = v;
     }
+    const scroll = a('scroll-zoom');
+    if (scroll !== null) o.scrollZoom = scroll === 'ctrl' || scroll === 'cooperative' ? 'cooperative' : boolAttr(scroll);
     const cluster = a('cluster');
     if (cluster !== null) o.cluster = cluster.trim().startsWith('{') ? parseJson<ClusterOptions>(cluster, {}) : boolAttr(cluster);
     if (a('hover-box') !== null) o.hoverBox = a('hover-box') || '<div style="background:#000;color:#fff;padding:.25em .5em;border-radius:3px" data-top="-10" data-left="15"></div>';
@@ -179,7 +179,7 @@ export class MapMarkerPlusElement extends HTMLElement {
         overlaySources: o.overlaySources,
         overlays: o.overlays,
         terrain: o.terrain ?? DEFAULT_TERRAIN,
-        scrollZoom: o.scrollZoom ? true : 'cooperative',
+        scrollZoom: o.scrollZoom ?? true,
         interactive: o.interactive !== false,
       });
     } catch (e) {
