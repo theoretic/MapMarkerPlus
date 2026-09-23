@@ -1,0 +1,7 @@
+node_modules/
+.claude/settings.local.json
+.idea/
+.vscode/
+*.original.md
+assets/dist/*.map
+stats.html

@@ -1,0 +1,17 @@
+* text=auto eol=lf
+*.module text eol=lf diff=php
+*.php text eol=lf diff=php
+*.js text eol=lf
+*.mjs text eol=lf
+*.ts text eol=lf
+*.css text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.svg text eol=lf
+*.png binary
+*.jpg binary
+*.gif binary
+*.woff binary
+*.woff2 binary
+# built bundles: committed, but not worth diffing
+assets/dist/** -diff linguist-generated
