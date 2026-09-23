@@ -1,0 +1,112 @@
+{
+  "maplibre": {
+    "osm": {
+      "name": "OpenStreetMap",
+      "engine": true,
+      "tiles": ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+      "maxzoom": 19,
+      "attribution": "© OpenStreetMap contributors"
+    },
+    "opentopomap": {
+      "name": "OpenTopoMap",
+      "engine": true,
+      "tiles": [
+        "https://a.tile.opentopomap.org/{z}/{x}/{y}.png",
+        "https://b.tile.opentopomap.org/{z}/{x}/{y}.png",
+        "https://c.tile.opentopomap.org/{z}/{x}/{y}.png"
+      ],
+      "maxzoom": 17,
+      "attribution": "© OpenStreetMap contributors, SRTM | © OpenTopoMap (CC-BY-SA)"
+    },
+    "s2cloudless": {
+      "name": "Satellite (Sentinel-2, non-commercial)",
+      "engine": true,
+      "satellite": true,
+      "tiles": ["https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/g/{z}/{y}/{x}.jpg"],
+      "maxzoom": 15,
+      "attribution": "Sentinel-2 cloudless 2020 by <a href=\"https://s2maps.eu\">EOX IT Services GmbH</a> (CC-BY-NC-SA 4.0)"
+    },
+    "esri-imagery": {
+      "name": "Esri World Imagery",
+      "satellite": true,
+      "tiles": ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],
+      "maxzoom": 19,
+      "attribution": "Tiles © Esri, Maxar, Earthstar Geographics, and the GIS User Community"
+    },
+    "esri-topo": {
+      "name": "Esri World Topo",
+      "tiles": ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}"],
+      "maxzoom": 19,
+      "attribution": "Tiles © Esri, HERE, Garmin, FAO, NOAA, USGS, © OpenStreetMap contributors"
+    },
+    "carto-voyager": {
+      "name": "Carto Voyager",
+      "key": "cartoKey",
+      "tiles": [
+        "https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?api_key={key}",
+        "https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?api_key={key}",
+        "https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?api_key={key}"
+      ],
+      "maxzoom": 20,
+      "attribution": "© OpenStreetMap contributors © <a href=\"https://carto.com/attributions\">CARTO</a>"
+    },
+    "maptiler-streets": {
+      "name": "MapTiler Streets",
+      "key": "maptilerKey",
+      "tiles": ["https://api.maptiler.com/maps/streets-v2/256/{z}/{x}/{y}.png?key={key}"],
+      "maxzoom": 22,
+      "attribution": "© <a href=\"https://www.maptiler.com/copyright/\">MapTiler</a> © OpenStreetMap contributors"
+    },
+    "maptiler-satellite": {
+      "name": "MapTiler Satellite",
+      "key": "maptilerKey",
+      "satellite": true,
+      "tiles": ["https://api.maptiler.com/maps/satellite/256/{z}/{x}/{y}.jpg?key={key}"],
+      "maxzoom": 20,
+      "attribution": "© <a href=\"https://www.maptiler.com/copyright/\">MapTiler</a> © OpenStreetMap contributors"
+    },
+    "maptiler-topo": {
+      "name": "MapTiler Topo",
+      "key": "maptilerKey",
+      "tiles": ["https://api.maptiler.com/maps/topo-v2/256/{z}/{x}/{y}.png?key={key}"],
+      "maxzoom": 22,
+      "attribution": "© <a href=\"https://www.maptiler.com/copyright/\">MapTiler</a> © OpenStreetMap contributors"
+    }
+  },
+  "overlays": {
+    "skyways": {
+      "name": "Skyways (kk7)",
+      "engine": true,
+      "tiles": ["https://thermal.kk7.ch/tiles/skyways_all_all/{z}/{x}/{y}.png?src={src}"],
+      "maxzoom": 12,
+      "scheme": "tms",
+      "attribution": "© <a href=\"https://thermal.kk7.ch/\">thermal.kk7.ch</a> (CC-BY-NC-SA)"
+    },
+    "thermals": {
+      "name": "Thermals (kk7)",
+      "engine": true,
+      "tiles": ["https://thermal.kk7.ch/tiles/thermals_all_all/{z}/{x}/{y}.png?src={src}"],
+      "maxzoom": 12,
+      "scheme": "tms",
+      "attribution": "© <a href=\"https://thermal.kk7.ch/\">thermal.kk7.ch</a> (CC-BY-NC-SA)"
+    },
+    "openaip": {
+      "name": "openAIP airspace",
+      "key": "openaipKey",
+      "tiles": ["https://api.tiles.openaip.net/api/data/openaip/{z}/{x}/{y}.png?apiKey={key}"],
+      "maxzoom": 14,
+      "attribution": "© <a href=\"https://www.openaip.net\">openAIP</a> (CC-BY-NC-SA)"
+    }
+  },
+  "google": {
+    "roadmap": { "name": "Roadmap" },
+    "satellite": { "name": "Satellite", "satellite": true },
+    "hybrid": { "name": "Hybrid", "satellite": true },
+    "terrain": { "name": "Terrain" }
+  },
+  "yandex": {
+    "scheme": { "name": "Scheme" },
+    "satellite": { "name": "Satellite", "satellite": true },
+    "hybrid": { "name": "Hybrid", "satellite": true }
+  }
+}

@@ -1,377 +1,455 @@
 <?php namespace ProcessWire;
 
 /**
- * ProcessWire Map Marker Inputfield
+ * ProcessWire MapMarkerPlus Inputfield
  *
- * Provides the admin control panel inputs for FieldtypeMapMarker
- * 
- * ProcessWire 3.x 
- * Copyright (C) 2023 by Ryan Cramer 
+ * Address, geocode switch, latitude, longitude, zoom and an interactive map.
+ * InputfieldMapMarkerPlus.js (a small loader for assets/dist/admin.js) and InputfieldMapMarkerPlus.css
+ * are loaded by Inputfield::renderReady() because their names match the class name.
+ *
+ * Fork of InputfieldMapMarker, Copyright (C) 2023 by Ryan Cramer.
  * Licensed under MPL 2.0
- * 
- * https://processwire.com
- * 
- * @property string $defaultAddr
- * @property int $defaultZoom
- * @property string $defaultType
- * @property string $defaultLat
+ *
+ * @property string $defaultAddr Address shown as placeholder for empty values
+ * @property string $defaultLat Map center for empty values (blank = module default)
  * @property string $defaultLng
- * @property int $height
- * @property string $googleApiKey
+ * @property int $defaultZoom Zoom for empty values and markers without zoom (0 = module default)
+ * @property int $height Map height in pixels
+ * @property array $clientConfig Map configuration from FieldtypeMapMarkerPlus::getClientConfig()
  *
  */
-
-class InputfieldMapMarker extends Inputfield {
+class InputfieldMapMarkerPlus extends Inputfield {
 
 	public static function getModuleInfo() {
 		return array(
-			'title' => 'Map Marker',
-			'version' => 300,
-			'summary' => "Provides input for the MapMarker Fieldtype",
-			'requires' => 'FieldtypeMapMarker',
-			'icon' => 'map-marker', 
+			'title' => 'MapMarkerPlus',
+			'version' => FieldtypeMapMarkerPlus::version,
+			'summary' => 'Input for the MapMarkerPlus Fieldtype',
+			'requires' => 'FieldtypeMapMarkerPlus',
+			'icon' => 'map-marker',
 		);
 	}
-	
-	const defaultAddr = 'Castaway Cay';
 
-	/**
-	 * Just in case this Inputfield is being used separately from FieldtypeMapmarker, we include the MapMarker class
-	 *
-	 */
 	public function __construct() {
-		require_once(dirname(__FILE__) . '/MapMarker.php'); 
-		$this->set('defaultAddr', self::defaultAddr); 
-		$this->set('defaultZoom', 12); 
-		$this->set('defaultType', 'HYBRID');  
-		$this->set('defaultLat', ''); 
-		$this->set('defaultLng', ''); 
-		$this->set('height', 300); 
-		$this->set('googleApiKey', '');
+		$this->set('defaultAddr', '');
+		$this->set('defaultZoom', 0);
+		$this->set('defaultLat', '');
+		$this->set('defaultLng', '');
+		$this->set('height', 300);
+		$this->set('clientConfig', array());
 		parent::__construct();
 	}
 
 	/**
-	 * Set an attribute to this Inputfield
+	 * @return FieldtypeMapMarkerPlus
 	 *
-	 * In this case, we just capture the 'value' attribute and make sure it's something valid
-	 * 
-	 * @param string $key
-	 * @param mixed $value
-	 * @return $this
-	 * @throws WireException
- 	 *
-	 */
-	public function setAttribute($key, $value) {
-
-		if($key == 'value' && !$value instanceof MapMarker && !is_null($value)) {
-			throw new WireException("This input only accepts a MapMarker for its value"); 
-		}
-
-		return parent::setAttribute($key, $value); 
-	}
-
-	/**
-	 * Is the value empty? 
-	 * 
-	 * @return bool
-	 * 
-	 */
-	public function isEmpty() {
-		return (!$this->value || ((float) $this->value->lat) === 0.0); 
-	}
-
-	/**
-	 * @return FieldtypeMapMarker
-	 * 
 	 */
 	public function fieldtype() {
-		/** @var FieldtypeMapMarker $fieldtype */
-		$fieldtype = $this->wire()->modules->get('FieldtypeMapMarker');
+		if($this->hasField && $this->hasField->type instanceof FieldtypeMapMarkerPlus) return $this->hasField->type;
+		/** @var FieldtypeMapMarkerPlus $fieldtype */
+		$fieldtype = $this->wire()->modules->get('FieldtypeMapMarkerPlus');
 		return $fieldtype;
-	}
-	
-	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
-		/*
-		$url = 'https://maps.google.com/maps/api/js';
-		$key = $this->get('googleApiKey');
-		if($key) $url .= "?key=$key";
-		*/
-		$url = $this->fieldtype()->getGoogleMapsURL();
-		$this->wire()->config->scripts->add($url);
-		return parent::renderReady($parent, $renderValueMode);
 	}
 
 	/**
-	 * Render the markup needed to draw the Inputfield
-	 * 
+	 * Only accept a MapMarkerPlus as value
+	 *
+	 * @param string $key
+	 * @param mixed $value
+	 * @return Inputfield|InputfieldMapMarkerPlus
+	 * @throws WireException
+	 *
+	 */
+	public function setAttribute($key, $value) {
+		if($key === 'value' && !$value instanceof MapMarkerPlus && !is_null($value)) {
+			throw new WireException('This input only accepts a MapMarkerPlus for its value');
+		}
+		return parent::setAttribute($key, $value);
+	}
+
+	/**
+	 * @return bool
+	 *
+	 */
+	public function isEmpty() {
+		$value = $this->attr('value');
+		return !$value instanceof MapMarkerPlus || $value->isEmpty();
+	}
+
+	/**
+	 * @return MapMarkerPlus
+	 *
+	 */
+	protected function marker() {
+		$marker = $this->attr('value');
+		if(!$marker instanceof MapMarkerPlus) {
+			$marker = new MapMarkerPlus();
+			$this->wire($marker);
+			$this->attr('value', $marker);
+		}
+		return $marker;
+	}
+
+	/**
+	 * Data for the map script
+	 *
+	 * @return array
+	 *
+	 */
+	public function getMapConfig() {
+		$config = $this->wire()->config;
+		$session = $this->wire()->session;
+		$fieldtype = $this->fieldtype();
+		$marker = $this->marker();
+
+		$client = $this->clientConfig;
+		if(!is_array($client) || empty($client)) $client = $fieldtype->getClientConfig($this->hasField ?: null);
+
+		$defaultLat = MapMarkerPlus::sanitizeCoordinate($this->defaultLat, 90);
+		$defaultLng = MapMarkerPlus::sanitizeCoordinate($this->defaultLng, 180);
+		$hasDefault = $defaultLat !== '' && $defaultLng !== '';
+		$defaultZoom = (int) $this->defaultZoom;
+		if($defaultZoom < 1) $defaultZoom = $hasDefault ? 12 : (int) $client['defaultZoom'];
+
+		$csrf = $session ? $session->CSRF : null;
+		$version = FieldtypeMapMarkerPlus::version;
+		$url = $config->urls('FieldtypeMapMarkerPlus');
+
+		return array_merge($client, array(
+			'name' => $this->attr('name'),
+			'field' => $this->hasField ? $this->hasField->name : '',
+			'marker' => $marker->toArray(),
+			'center' => array(
+				'lat' => $hasDefault ? (float) $defaultLat : $client['defaultLat'],
+				'lng' => $hasDefault ? (float) $defaultLng : $client['defaultLng'],
+			),
+			'zoom' => $marker->zoom > 0 ? $marker->zoom : $defaultZoom,
+			'defaultZoom' => $defaultZoom,
+			'geocoder' => $fieldtype->getGeocoderName($this->hasField ?: null),
+			'endpoint' => $config->urls->root . ltrim($fieldtype->getEndpointPath(), '/'),
+			'csrf' => $csrf ? array('name' => $csrf->getTokenName(), 'value' => $csrf->getTokenValue()) : null,
+			'bundle' => "{$url}assets/dist/admin.js?v=$version",
+			'i18n' => array(
+				'mode2d' => $this->_('2D'),
+				'mode3d' => $this->_('3D'),
+				'style' => $this->_('Map style'),
+				'geocoding' => $this->_('Geocoding…'),
+				'notFound' => $this->_('Address not found'),
+				'error' => $this->_('Geocoding failed'),
+				'off' => $this->_('Geocode OFF'),
+				'on' => $this->_('Geocode ON'),
+				'clickToPlace' => $this->_('Click the map to place the marker'),
+				'loadError' => $this->_('The map could not be loaded'),
+			),
+		));
+	}
+
+	/**
 	 * @return string
 	 *
 	 */
 	public function ___render() {
-	
 		$sanitizer = $this->wire()->sanitizer;
+		$config = $this->wire()->config;
 		$adminTheme = $this->wire()->adminTheme;
 
-		$name = $this->attr('name'); 
-		$id = $this->attr('id'); 
-		$marker = $this->attr('value'); 
-		
-		if($marker->lat == 0.0) $marker->lat = $this->defaultLat; 
-		if($marker->lng == 0.0) $marker->lng = $this->defaultLng; 
-		if(!$marker->zoom) $marker->zoom = $this->defaultZoom;
-		
-		$address = $sanitizer->entities($marker->address);
-		$toggleChecked = $marker->status != MapMarker::statusNoGeocode ? " checked='checked'" : '';
-		$status = $marker->status == MapMarker::statusNoGeocode ? 0 : $marker->status; 
-		$mapType = $this->defaultType; 
-		$height = $this->height ? (int) $this->height : 300;
+		$name = $sanitizer->entities($this->attr('name'));
+		$id = $sanitizer->entities($this->attr('id'));
+		$marker = $this->marker();
+
 		$classes = array('input' => '', 'checkbox' => '');
-	
 		if($adminTheme && method_exists($adminTheme, 'getClass')) {
-			foreach(array_keys($classes) as $key) {
-				$classes[$key] = $adminTheme->getClass($key);
-			}
+			foreach(array_keys($classes) as $key) $classes[$key] = $adminTheme->getClass($key);
 		}
-		
+
 		$labels = array(
-			'addr' => $this->_('Address'), 
+			'addr' => $this->_('Address'),
 			'lat' => $this->_('Latitude'),
 			'lng' => $this->_('Longitude'),
-			'geo' => $this->_('Geocode?'),
-			'zoom' => $this->_('Zoom')
+			'geo' => $this->_('Geocode'),
+			'geoTitle' => $this->_('Geocode ON/OFF: find coordinates for the address and the address for a moved marker'),
+			'zoom' => $this->_('Zoom'),
 		);
-		
-		foreach($labels as $key => $label) {
-			$labels[$key] = $sanitizer->entities1($label);
+		foreach($labels as $key => $label) $labels[$key] = $sanitizer->entities1($label);
+
+		$address = $sanitizer->entities($marker->address);
+		$placeholder = $sanitizer->entities((string) $this->defaultAddr);
+		$lat = $sanitizer->entities($marker->lat);
+		$lng = $sanitizer->entities($marker->lng);
+		$zoom = $marker->zoom > 0 ? (int) $marker->zoom : '';
+		$geocodeOff = $marker->status == MapMarkerPlus::statusNoGeocode;
+		$checked = $geocodeOff ? '' : " checked='checked'";
+		$status = $geocodeOff ? 0 : (int) $marker->status;
+		$disabledGeocoder = $this->fieldtype()->getGeocoderName($this->hasField ?: null) === 'none';
+		$height = $this->height ? (int) $this->height : 300;
+		$mapConfig = $this->encodeJson($this->getMapConfig());
+
+		$toggle = $disabledGeocoder ? '' : "
+			<div class='InputfieldMapMarkerPlusToggle'>
+				<label title='$labels[geoTitle]'>
+					<input type='checkbox' class='$classes[checkbox]' name='_{$name}_status' id='_{$id}_toggle' value='$status'$checked />
+					<span>$labels[geo]</span>
+				</label>
+			</div>";
+
+		$out = "
+		<div class='InputfieldMapMarkerPlusInputs'>
+			<div class='InputfieldMapMarkerPlusAddress'>
+				<label for='$id'>$labels[addr]</label>
+				<input type='text' id='$id' name='$name' value='$address' placeholder='$placeholder' maxlength='255' autocomplete='off' class='$classes[input]' />
+				<input type='hidden' name='_{$name}_js_geocode_address' value='' />
+				<input type='hidden' name='_{$name}_raw' value='' />
+			</div>$toggle
+			<div class='InputfieldMapMarkerPlusLat'>
+				<label for='_{$id}_lat'>$labels[lat]</label>
+				<input type='text' id='_{$id}_lat' name='_{$name}_lat' value='$lat' inputmode='decimal' class='$classes[input]' />
+			</div>
+			<div class='InputfieldMapMarkerPlusLng'>
+				<label for='_{$id}_lng'>$labels[lng]</label>
+				<input type='text' id='_{$id}_lng' name='_{$name}_lng' value='$lng' inputmode='decimal' class='$classes[input]' />
+			</div>
+			<div class='InputfieldMapMarkerPlusZoom'>
+				<label for='_{$id}_zoom'>$labels[zoom]</label>
+				<input type='number' min='0' max='29' id='_{$id}_zoom' name='_{$name}_zoom' value='$zoom' class='$classes[input]' />
+			</div>
+		</div>
+		<div class='InputfieldMapMarkerPlusMap' id='_{$id}_map' style='height: {$height}px' data-config='$mapConfig'></div>
+		<p class='InputfieldMapMarkerPlusStatus detail' aria-live='polite'>" . $sanitizer->entities($this->statusLine($marker)) . "</p>";
+
+		if($config->ajax) {
+			// inputfields rendered by ajax don't get their assets from $config->scripts/styles
+			$url = $config->urls('InputfieldMapMarkerPlus');
+			$v = FieldtypeMapMarkerPlus::version;
+			$out .= "<link rel='stylesheet' href='{$url}InputfieldMapMarkerPlus.css?v=$v' />" .
+				"<script src='{$url}InputfieldMapMarkerPlus.js?v=$v'></script>";
 		}
 
-		$out = <<< _OUT
+		$this->warnMissingKey();
 
-		<span></span>
-
-		<p class='InputfieldMapMarkerAddress'>
-			<label>
-				<strong>$labels[addr]</strong>
-				<br />
-				<input type='text' id='{$id}' name='{$name}' value='{$address}' class='$classes[input]' /><br />
-			</label>
-			<input type='hidden' id='_{$name}_js_geocode_address' name='_{$name}_js_geocode_address' value='' />
-		</p>
-
-		<p class='InputfieldMapMarkerToggle'>
-			<label>
-				<br />
-				<input title='Geocode ON/OFF' type='checkbox' class='$classes[checkbox]' name='_{$name}_status' id='_{$name}_toggle' value='$status'$toggleChecked />
-				<strong>$labels[geo]</strong>
-			</label>
-		</p>
-
-		<p class='InputfieldMapMarkerLat'>
-			<label>
-				<strong>$labels[lat]</strong><br />
-				<input type='text' id='_{$id}_lat' name='_{$name}_lat' value='{$marker->lat}' class='$classes[input]' />
-			</label>
-		</p>
-
-		<p class='InputfieldMapMarkerLng'>
-			<label>
-				<strong>$labels[lng]</strong><br />
-				<input type='text' id='_{$id}_lng' name='_{$name}_lng' value='{$marker->lng}' class='$classes[input]' />
-			</label>
-		</p>
-
-		<p class='InputfieldMapMarkerZoom'>
-			<label>
-				<strong>$labels[zoom]</strong><br />
-				<input type='number' min='0' id='_{$id}_zoom' name='_{$name}_zoom' value='{$marker->zoom}' class='$classes[input]' />
-			</label>
-		</p>
-
-
-_OUT;
-
-		$out .= 
-			"<div class='InputfieldMapMarkerMap' " . 
-				"id='_{$id}_map' " . 
-				"style='height: {$height}px' " . 
-				"data-lat='$marker->lat' " . 
-				"data-lng='$marker->lng' " . 
-				"data-zoom='$marker->zoom' " . 
-				"data-type='$mapType'>" . 
-			"</div>";
-
-		$this->notes = $marker->statusString; 
-		
-		if(!$this->get('googleApiKey')) {
-			$config = $this->wire()->config;
-			$msg = $sanitizer->entities1($this->_('Please setup a Google Maps API key in the FieldtypeMapMarker module settings'));
-			if($this->wire()->user->isSuperuser()) {
-				$link = "<a href='{$config->urls->admin}module/edit?name=FieldtypeMapMarker'>";
-				$msg = "$link$msg</a>";
-				$this->warning($msg, Notice::allowMarkup);
-			} else {
-				$this->warning($msg);
-			}
-		}
-
-		return $out; 
+		return $out;
 	}
 
 	/**
-	 * Process the input after a form submission
-	 * 
+	 * Status text under the map
+	 *
+	 * @param MapMarkerPlus $marker
+	 * @return string
+	 *
+	 */
+	protected function statusLine(MapMarkerPlus $marker) {
+		if($marker->status == 0) return '';
+		$s = $marker->statusString;
+		if($marker->geocoder !== '') $s .= " ({$marker->geocoder})";
+		if($marker->formatted !== '' && $marker->formatted !== $marker->address) $s .= ': ' . $marker->formatted;
+		return $s;
+	}
+
+	/**
+	 * Tell superusers when the map provider has no key
+	 *
+	 */
+	protected function warnMissingKey() {
+		$fieldtype = $this->fieldtype();
+		$provider = $fieldtype->getMapProvider($this->hasField ?: null);
+		if($fieldtype->providerIsConfigured($provider)) return;
+		$msg = sprintf($this->_('Please set up the %s API key in the MapMarkerPlus module settings'), $provider === 'google' ? 'Google Maps' : 'Yandex Maps');
+		$user = $this->wire()->user;
+		if($user && $user->isSuperuser()) {
+			$url = $this->wire()->config->urls->admin . 'module/edit?name=FieldtypeMapMarkerPlus';
+			$this->warning("<a href='$url'>" . $this->wire()->sanitizer->entities1($msg) . '</a>', Notice::allowMarkup);
+		} else {
+			$this->warning($msg);
+		}
+	}
+
+	/**
+	 * JSON safe for a single-quoted HTML attribute
+	 *
+	 * @param array $data
+	 * @return string
+	 *
+	 */
+	protected function encodeJson(array $data) {
+		$json = json_encode($data, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+		return htmlspecialchars((string) $json, ENT_QUOTES, 'UTF-8');
+	}
+
+	/**
+	 * @return string
+	 *
+	 */
+	public function ___renderValue() {
+		$marker = $this->marker();
+		if($marker->isEmpty()) return '';
+		$sanitizer = $this->wire()->sanitizer;
+		$out = $sanitizer->entities($marker->address);
+		if($marker->hasCoordinates()) {
+			$coords = $sanitizer->entities("$marker->lat, $marker->lng");
+			$out .= ($out !== '' ? '<br />' : '') . "<span class='detail'>$coords</span>";
+		}
+		return "<p>$out</p>";
+	}
+
+	/**
 	 * @param WireInputData $input
 	 * @return $this
 	 *
 	 */
 	public function ___processInput(WireInputData $input) {
+		$name = $this->attr('name');
+		$marker = $this->marker();
+		if(!isset($input->$name)) return $this;
 
-		$name = $this->attr('name'); 
-		$marker = $this->attr('value');
-
-		if(!isset($input->$name)) {
-			return $this;
+		$marker->set('address', (string) $input->$name);
+		$marker->set('lat', (string) $input["_{$name}_lat"]);
+		$marker->set('lng', (string) $input["_{$name}_lng"]);
+		if(!$marker->hasCoordinates()) {
+			$marker->set('lat', '');
+			$marker->set('lng', '');
 		}
 
-		if($input->$name == $this->defaultAddr) {
-			$marker->set('address', ''); 
-		} else {
-			$marker->set('address', $input->$name);
-		}
+		$zoom = $input["_{$name}_zoom"];
+		$marker->set('zoom', ctype_digit((string) $zoom) ? (int) $zoom : 0);
 
-		$lat = (float) $input["_{$name}_lat"];
-		$lng = (float) $input["_{$name}_lng"];
-		$defaultLat = (float) $this->defaultLat;
-		$defaultLng = (float) $this->defaultLng;
-		$precision = 4; 
-		
-		if(	((string) round($lat, $precision)) != ((string) round($defaultLat, $precision)) ||
-			((string) round($lng, $precision)) != ((string) round($defaultLng, $precision))) {
-			$marker->set('lat', $lat); 
-			$marker->set('lng', $lng); 
-		} else {
-			// $this->message("Kept lat/lng at unset value", Notice::debug); 
-		}
-
-		$zoom = $input["_{$name}_zoom"]; 
-		if($zoom > -1 && $zoom < 30) $marker->zoom = (int) $zoom; 
-	
-		$status = $input["_{$name}_status"]; 
-		if(is_null($status)) {
-			$marker->set('status', MapMarker::statusNoGeocode); // disable geocode
+		$status = $input["_{$name}_status"];
+		$geocoderName = $this->fieldtype()->getGeocoderName($this->hasField ?: null);
+		if($geocoderName === 'none') {
+			$marker->set('status', 0);
+		} else if(is_null($status)) {
+			$marker->set('status', MapMarkerPlus::statusNoGeocode);
 		} else {
 			$marker->set('status', (int) $status);
 		}
 
-		// if the address changed, then redo the geocoding.
-		// while we do this in the Fieldtype, we also do it here in case this Inputfield is used on it's own.
-		// the MapMarker class checks to make sure it doesn't do the same geocode twice. 
-		if($marker->isChanged('address') && $marker->address && $marker->status != MapMarker::statusNoGeocode) {
-			// double check that the address wasn't already populated by the JS geocoder
-			// this prevents user-dragged markers that don't geocode to an exact location from getting 
-			// unintentionally moved by the PHP-side geocoder
-			if($input["_{$name}_js_geocode_address"] == $marker->address) {
-				// prevent the geocoder from running in the fieldtype
-				$marker->skipGeocode = true; 
-				$this->message('Skipping geocode (already done by JS geocoder)', Notice::debug); 
+		if($marker->isChanged('address') && $marker->address !== '' && $marker->status != MapMarkerPlus::statusNoGeocode && $geocoderName !== 'none') {
+			if((string) $input["_{$name}_js_geocode_address"] === $marker->address) {
+				// the JS already geocoded (or reverse geocoded) this address: keep the coordinates the user sees
+				$marker->skipGeocode = true;
+				$raw = $this->sanitizeRaw((string) $input["_{$name}_raw"]);
+				if(count($raw)) $marker->set('raw', $raw);
+				$this->message($this->_('Skipping geocode (already done by the map)'), Notice::debug);
 			} else {
 				$marker->geocode();
 			}
 		}
 
+		if($marker->isChanged()) $this->trackChange('value');
 		return $this;
 	}
 
 	/**
+	 * Accept only a known subset of the geocode result posted by the map script
+	 *
+	 * @param string $json
+	 * @return array
+	 *
+	 */
+	protected function sanitizeRaw($json) {
+		$data = $json !== '' ? json_decode($json, true) : null;
+		if(!is_array($data)) return array();
+		$sanitizer = $this->wire()->sanitizer;
+		$geocoders = $this->fieldtype()->getGeocoders();
+		$provider = isset($data['provider']) ? (string) $data['provider'] : '';
+		if(!isset($geocoders[$provider])) return array();
+		$accuracy = isset($data['accuracy']) ? (string) $data['accuracy'] : '';
+		if(!isset(MapMarkerPlusGeocodeResult::accuracyStatuses[$accuracy])) $accuracy = '';
+		return array(
+			'v' => 1,
+			'provider' => $provider,
+			'formatted' => $sanitizer->text(isset($data['formatted']) ? (string) $data['formatted'] : '', array('maxLength' => 1024)),
+			'accuracy' => $accuracy,
+			'time' => time(),
+			'result' => array(),
+		);
+	}
+
+	/**
+	 * Input tab settings
+	 *
 	 * @return InputfieldWrapper
-	 * 
+	 *
 	 */
 	public function ___getConfigInputfields() {
 		$modules = $this->wire()->modules;
 		$inputfields = parent::___getConfigInputfields();
 
-		/** @var InputfieldText $field */
-		$field = $modules->get('InputfieldText'); 
-		$field->attr('name', 'defaultAddr'); 
-		$field->label = $this->_('Default Address'); 
-		$field->description = $this->_('This will be geocoded to become the starting point of the map.'); 
-		$field->attr('value', $this->defaultAddr); 
-		$field->notes = $this->_('When modifying the default address, please make the Latitude and Longitude fields below blank, which will force the system to geocode your new address.');  
-		$inputfields->add($field); 
+		/** @var InputfieldText $f */
+		$f = $modules->get('InputfieldText');
+		$f->attr('name', 'defaultAddr');
+		$f->label = $this->_('Default address');
+		$f->description = $this->_('Placeholder of the address input. When latitude and longitude below are blank, it is geocoded to become the map center for empty values.');
+		$f->attr('value', (string) $this->defaultAddr);
+		$inputfields->add($f);
 
-		if(!$this->defaultLat && !$this->defaultLng) {
-			$m = new MapMarker();
-			$m->address = $this->defaultAddr; 
-			$status = $m->geocode();	
-			if($status > 0) {
-				$this->defaultLat = $m->lat; 
-				$this->defaultLng = $m->lng; 
-				$this->message($this->_('Geocoded your default address. Please hit save once again to commit the new default latitude and longitude.')); 
+		if($this->defaultAddr !== '' && $this->defaultLat === '' && $this->defaultLng === '' && $this->hasField) {
+			$m = new MapMarkerPlus();
+			$this->wire($m);
+			$m->setField($this->hasField);
+			$m->address = $this->defaultAddr;
+			if($m->geocode(false) > 0) {
+				$this->defaultLat = $m->lat;
+				$this->defaultLng = $m->lng;
+				$this->message($this->_('Geocoded your default address. Please save once again to keep the default latitude and longitude.'));
 			}
 		}
 
-		/** @var InputfieldText $field */
-		$field = $modules->get('InputfieldText'); 
-		$field->attr('name', 'defaultLat'); 
-		$field->label = $this->_('Default Latitude'); 
-		$field->attr('value', $this->defaultLat); 
-		$field->columnWidth = 50; 
-		$inputfields->add($field);
+		foreach(array('defaultLat' => $this->_('Default latitude'), 'defaultLng' => $this->_('Default longitude')) as $name => $label) {
+			/** @var InputfieldText $f */
+			$f = $modules->get('InputfieldText');
+			$f->attr('name', $name);
+			$f->label = $label;
+			$f->attr('value', (string) $this->get($name));
+			$f->columnWidth = 50;
+			$inputfields->add($f);
+		}
 
-		/** @var InputfieldText $field */
-		$field = $modules->get('InputfieldText'); 
-		$field->attr('name', 'defaultLng'); 
-		$field->label = $this->_('Default Longitude'); 
-		$field->attr('value', $this->defaultLng); 
-		$field->columnWidth = 50; 
-		$inputfields->add($field);
+		/** @var InputfieldInteger $f */
+		$f = $modules->get('InputfieldInteger');
+		$f->attr('name', 'height');
+		$f->label = $this->_('Map height (in pixels)');
+		$f->attr('value', (int) $this->height);
+		$f->attr('type', 'number');
+		$f->columnWidth = 50;
+		$inputfields->add($f);
 
-		/** @var InputfieldRadios $field */
-		$field = $modules->get('InputfieldRadios'); 
-		$field->attr('name', 'defaultType'); 
-		$field->label = $this->_('Default Map Type'); 
-		$field->addOption('HYBRID', $this->_('Hybrid')); 
-		$field->addOption('ROADMAP', $this->_('Road Map')); 
-		$field->addOption('SATELLITE', $this->_('Satellite')); 
-		$field->attr('value', $this->defaultType); 
-		$field->optionColumns = 1; 
-		$field->columnWidth = 50; 
-		$inputfields->add($field);
+		/** @var InputfieldInteger $f */
+		$f = $modules->get('InputfieldInteger');
+		$f->attr('name', 'defaultZoom');
+		$f->label = $this->_('Default zoom');
+		$f->description = $this->_('Between 1 and 22. 0 = 12 when a default location is set, else the module default.');
+		$f->attr('value', (int) $this->defaultZoom);
+		$f->attr('type', 'number');
+		$f->columnWidth = 50;
+		$inputfields->add($f);
 
-		/** @var InputfieldInteger $field */
-		$field = $modules->get('InputfieldInteger'); 	
-		$field->attr('name', 'height'); 
-		$field->label = $this->_('Map Height (in pixels)'); 
-		$field->attr('value', $this->height); 
-		$field->attr('type', 'number'); 
-		$field->columnWidth = 50; 
-		$inputfields->add($field);
+		/** @var InputfieldMarkup $f */
+		$f = $modules->get('InputfieldMarkup');
+		$f->label = $this->_('API notes');
+		$f->description = $this->_('Values of this field in your template files:');
+		$n = $this->wire()->sanitizer->entities($this->hasField ? $this->hasField->name : $this->attr('name'));
+		$f->value = '<pre>' .
+			"\$page->{$n}->address\n" .
+			"\$page->{$n}->lat\n" .
+			"\$page->{$n}->lng\n" .
+			"\$page->{$n}->zoom\n" .
+			"\$page->{$n}->formatted  // address as returned by the geocoder\n" .
+			"\$page->{$n}->statusString\n\n" .
+			"echo \$modules->get('MarkupMapMarkerPlus')->render(\$page, '{$n}');" .
+			'</pre>';
+		$f->collapsed = Inputfield::collapsedYes;
+		$inputfields->add($f);
 
-		/** @var InputfieldInteger $field */
-		$field = $modules->get('InputfieldInteger'); 	
-		$field->attr('name', 'defaultZoom'); 
-		$field->label = $this->_('Default Zoom'); 
-		$field->description = $this->_('Enter a value between 1 and 23. The highest zoom level is typically somewhere between 19-23, depending on the location being zoomed and how much data Google has for the location.');  // Zoom level description
-		$field->attr('value', $this->defaultZoom); 
-		$field->attr('type', 'number'); 
-		$inputfields->add($field);
-
-		/** @var InputfieldMarkup $field */
-		$field = $modules->get('InputfieldMarkup'); 
-		$field->label = $this->_('API Notes'); 
-		$field->description = $this->_('You can access individual values from this field using the following from your template files:');
-		$field->value = 
-			"<pre>" .
-			"\$page->{$this->name}->address\n" . 
-			"\$page->{$this->name}->lat\n" . 
-			"\$page->{$this->name}->lng\n" . 
-			"\$page->{$this->name}->zoom" . 
-			"</pre>";
-
-		$inputfields->add($field); 
-
-		return $inputfields; 	
+		return $inputfields;
 	}
 
+	/**
+	 * Settings that may differ per template
+	 *
+	 * @param Field $field
+	 * @return array
+	 *
+	 */
+	public function ___getConfigAllowContext($field) {
+		return array_merge(parent::___getConfigAllowContext($field), array('defaultAddr', 'defaultLat', 'defaultLng', 'defaultZoom', 'height'));
+	}
 }

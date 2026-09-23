@@ -1,255 +1,374 @@
-<?php namespace ProcessWire; 
+<?php namespace ProcessWire;
 
 /**
- * ProcessWire Map Markup
+ * ProcessWire MapMarkerPlus Markup
  *
- * Renders maps for the FieldtypeMapMarker module
- * 
- * ProcessWire 3.x 
- * Copyright (C) 2023 by Ryan Cramer 
+ * Renders maps for MapMarkerPlus fields as a <map-marker-plus> web component
+ * (assets/dist/frontend.js). Works with MapLibre, Google Maps and Yandex Maps.
+ *
+ * Fork of MarkupGoogleMap, Copyright (C) 2023 by Ryan Cramer.
  * Licensed under MPL 2.0
- * 
- * https://processwire.com
  *
- * USAGE:
- * ======
+ * USAGE
+ * =====
  *
- * Add this somewhere before your closing </head> tag:
- * 
- *    <script type='text/javascript' src='<?=$modules->FieldtypeMapMarker->getGoogleMapsURL();?>'></script>
- *  
- * In the location where you want to output your map, do the following in your template file:
- * 
- *    $map = $modules->get('MarkupGoogleMap'); 
- *    echo $map->render($page, 'map'); // replace 'map' with the name of your FieldtypeMap field
+ *    $map = $modules->get('MarkupMapMarkerPlus');
+ *    echo $map->render($page, 'map');   // one page
+ *    echo $map->render($pages->find("template=shop, map!=''"), 'map', array('height' => '500px', 'cluster' => true));
  *
- * To render a map with multiple markers on it, specify a PageArray rather than a single $page: 
+ * The module script tag is output with the first map. Use 'script' => false to output it yourself
+ * with renderScript(), i.e. in the document head.
  *
- *    $items = $pages->find("template=something, map!='', sort=title"); 
- *    $map = $modules->get('MarkupGoogleMap'); 
- *    echo $map->render($items, 'map'); 
- *
- * To specify options, provide a 3rd argument with an options array:
- *
- *    $map = $modules->get('MarkupGoogleMap'); 
- *    echo $map->render($items, 'map', array('height' => '500px')); 
- *
- * 
- * OPTIONS
+ * OPTIONS (defaults come from the field settings)
  * =======
- * Here is a list of all possible options (with defaults shown):  
- * 
- * // default width of the map 
- * 'width' => '100%' 
- * 
- * // default height of the map
- * 'height' => '300px' 
- * 
- * // zoom level
- * 'zoom' => 12 (or $field->defaultZoom)
- * 
- * // map type: ROADMAP, HYBRID or SATELLITE
- * 'type' => 'HYBRID' or $field->defaultType
- * 
- * // map ID attribute
- * 'id' => "mgmap" 
- * 
- * // map class attribute
- * 'class' => "MarkupGoogleMap" 
- * 
- * // center latitude
- * 'lat' => $field->defaultLat 
- * 
- * // center longitude
- * 'lng' => $field->defaultLng 
- * 
- * // set to false only if you will style the map <div> yourself
- * 'useStyles' => true 
- * 
- * // allows single-marker map to use marker settings rather than map settings
- * 'useMarkerSettings' => true 
- * 
- * // field to use for the marker link, or blank to not link
- * 'markerLinkField' => 'url' 
  *
- * // field to use for the marker title
- * 'markerTitleField' => 'title' 
- * 
- * // map will automatically adjust to fit to the given markers (when multiple markers)
- * 'fitToMarkers' => true 
+ * width, height              CSS sizes, integers are pixels (default: 100%, field height)
+ * zoom                       Zoom level (default: field default zoom)
+ * lat, lng                   Map center (default: field default location)
+ * provider                   maplibre|google|yandex (default: field setting)
+ * style                      Style id of the provider, see styles.json (default: field setting)
+ * type                       Alias of style for MarkupGoogleMap compatibility: ROADMAP, SATELLITE, HYBRID, TERRAIN
+ * mode                       2d|3d (default: field setting)
+ * overlays                   MapLibre overlay ids, i.e. array('skyways')
+ * id, class                  Attributes of the element (default: mmpmap1.., MarkupMapMarkerPlus)
+ * attrs                      More attributes, array('data-foo' => 'bar')
+ * useStyles                  Output width/height as inline style (default: true)
+ * useMarkerSettings          Single marker map uses the marker's position and zoom (default: true)
+ * markerLinkField            Page field for the marker link, blank for none (default: url)
+ * markerTitleField           Page field for the marker title, blank for none (default: title)
+ * fitToMarkers               Fit the map to multiple markers (default: true)
+ * cluster                    Cluster markers: true or array('radius' => 50, 'maxZoom' => 14) (default: false)
+ * popup                      Open a popup with the title on click instead of following the link (default: false)
+ * popupField                 Page field with popup HTML (trusted markup, not escaped)
+ * popupCallback              function(Page $page, MapMarkerPlus $marker): string, popup HTML
+ * markerCallback             function(Page $page, MapMarkerPlus $marker): array merged into the marker data
+ * useHoverBox                Tooltip that follows the cursor over markers (default: false)
+ * hoverBoxMarkup             Markup of the hover box, data-top/data-left are offsets
+ * icon, iconHover            URL of marker icons
+ * allowModeToggle            Show a 2D/3D switch (default: field setting)
+ * allowStyleSwitch           Show a style switch (default: field setting)
+ * scrollZoom                 Zoom with the mouse wheel (default: false)
+ * lazy                       Load the map when it scrolls into view (default: true)
+ * init                       Name of a global JS function, or JS code, run with the element when the map is ready
+ * script                     Output the module script tag with the first map (default: true)
  *
- * // use hover box? When true, shows a tooltip-type box when you hover the marker, populated with the markerTitleField
- * // this is often more useful than the default presentation google maps uses
- * 'useHoverBox' => false
- *
- * // when useHoverBox is true, you can specify the markup used for it. Use the following (which is the default) as your starting point:
- * 'hoverBoxMarkup' => "<div data-top='-10' data-left='15' style='background: #000; color: #fff; padding: 0.25em 0.5em; border-radius: 3px;'></div>", 
- *
- * // FUll URL to icon file to use for markers. Blank=use default Google marker icon. 
- * 'icon' => '', 
- * 
- * // Any extra javascript initialization code you want to occur before the map itself is drawn
- * 'init' => '', 
+ * @method array getMarkerData(Page $page, Field $field, MapMarkerPlus $marker, array $options)
  *
  */
-
-class MarkupGoogleMap extends WireData implements Module {
+class MarkupMapMarkerPlus extends WireData implements Module {
 
 	public static function getModuleInfo() {
 		return array(
-			'title' => 'Map Markup (Google Maps)',
-			'version' => 300,
-			'summary' => 'Renders Google Maps for the MapMarker Fieldtype',
-			'requires' => 'FieldtypeMapMarker',
+			'title' => 'MapMarkerPlus Markup',
+			'version' => FieldtypeMapMarkerPlus::version,
+			'summary' => 'Renders maps (MapLibre, Google, Yandex) for MapMarkerPlus fields',
+			'requires' => 'FieldtypeMapMarkerPlus',
+			'icon' => 'map',
 		);
 	}
 
 	/**
-	 * Include our MapMarker class, which serves as the value for fields of type FieldtypeMapMarker
+	 * Number of maps rendered in this request
+	 *
+	 * @var int
 	 *
 	 */
-	public function init() {	
-		require_once(dirname(__FILE__) . '/MapMarker.php'); 
+	protected $n = 0;
+
+	/**
+	 * Was the script tag output?
+	 *
+	 * @var bool
+	 *
+	 */
+	protected $scriptRendered = false;
+
+	/**
+	 * @return FieldtypeMapMarkerPlus
+	 *
+	 */
+	public function fieldtype() {
+		/** @var FieldtypeMapMarkerPlus $fieldtype */
+		$fieldtype = $this->wire()->modules->get('FieldtypeMapMarkerPlus');
+		return $fieldtype;
 	}
 
 	/**
-	 * Get associative array of map options
-	 * 
 	 * @param string $fieldName
+	 * @return Field
+	 * @throws WireException
+	 *
+	 */
+	protected function getMapField($fieldName) {
+		$field = $fieldName instanceof Field ? $fieldName : $this->wire()->fields->get($fieldName);
+		if(!$field) throw new WireException("Unknown field: $fieldName");
+		if(!$field->type instanceof FieldtypeMapMarkerPlus) throw new WireException("Field $fieldName is not a MapMarkerPlus field");
+		return $field;
+	}
+
+	/**
+	 * Default options for a field
+	 *
+	 * @param string|Field $fieldName
 	 * @return array
 	 * @throws WireException
-	 * 
+	 *
 	 */
 	public function getOptions($fieldName) {
+		return $this->getOptionsForField($this->getMapField($fieldName));
+	}
 
-		static $n = 0; 
-		$field = $this->wire()->fields->get($fieldName); 
-		if(!$field) throw new WireException("Unknown field: $fieldName"); 
-
+	/**
+	 * Default options for a field
+	 *
+	 * @param Field $field
+	 * @return array
+	 *
+	 */
+	public function getOptionsForField(Field $field) {
+		/** @var FieldtypeMapMarkerPlus $fieldtype */
+		$fieldtype = $field->type;
+		$lat = MapMarkerPlus::sanitizeCoordinate($field->get('defaultLat'), 90);
+		$lng = MapMarkerPlus::sanitizeCoordinate($field->get('defaultLng'), 180);
+		$hasDefault = $lat !== '' && $lng !== '';
+		$zoom = (int) $field->get('defaultZoom');
+		if($zoom < 1) $zoom = $hasDefault ? 12 : (int) $fieldtype->defaultZoom;
 		return array(
-			'useStyles' => true, 
-			'fitToMarkers' => true, 
-			'useMarkerSettings' => true, 
-			'useHoverBox' => false, 
-			'hoverBoxMarkup' => "<div data-top='-10' data-left='15' style='background: #000; color: #fff; padding: 0.25em 0.5em; border-radius: 3px;'></div>", 
-			'markerLinkField' => 'url', 
-			'markerTitleField' => 'title', 
-			'width' => '100%', 
-			'height' => $field->get('height'), 
-			'zoom' => $field->get('defaultZoom') ? (int) $field->get('defaultZoom') : 12, 
-			'type' => $field->get('defaultType') ? $field->get('defaultType') : 'HYBRID', 
-			'id' => "mgmap" . (++$n), 
-			'class' => "MarkupGoogleMap", 
-			'lat' => $field->get('defaultLat'),
-			'lng' => $field->get('defaultLng'),
-			'icon' => '', // url to icon (blank=use default)
-			'iconHover' => '', // url to icon when hovered (default=none)
-			'shadow' => '', // url to icon shadow (blank=use default)
-			'init' => '', // additional javascript code to insert in map initialization
-			'n' => $n, 
+			'width' => '100%',
+			'height' => $field->get('height') ? (int) $field->get('height') : 300,
+			'zoom' => $zoom,
+			'lat' => $hasDefault ? (float) $lat : (float) $fieldtype->defaultLat,
+			'lng' => $hasDefault ? (float) $lng : (float) $fieldtype->defaultLng,
+			'provider' => $fieldtype->getMapProvider($field),
+			'style' => '',
+			'type' => '',
+			'mode' => $field->get('mapMode') === '3d' ? '3d' : '2d',
+			'overlays' => (array) $field->get('mapOverlays'),
+			'id' => '',
+			'class' => 'MarkupMapMarkerPlus',
+			'attrs' => array(),
+			'useStyles' => true,
+			'useMarkerSettings' => true,
+			'markerLinkField' => 'url',
+			'markerTitleField' => 'title',
+			'fitToMarkers' => true,
+			'cluster' => false,
+			'popup' => false,
+			'popupField' => '',
+			'popupCallback' => null,
+			'markerCallback' => null,
+			'useHoverBox' => false,
+			'hoverBoxMarkup' => "<div data-top='-10' data-left='15' style='background: #000; color: #fff; padding: 0.25em 0.5em; border-radius: 3px;'></div>",
+			'icon' => '',
+			'iconHover' => '',
+			'allowModeToggle' => (bool) $field->get('allowModeToggle'),
+			'allowStyleSwitch' => (bool) $field->get('allowStyleSwitch'),
+			'scrollZoom' => false,
+			'lazy' => true,
+			'init' => '',
+			'script' => true,
 		);
 	}
 
 	/**
-	 * Get the script tag for loading Google Maps
-	 * 
+	 * Render a map
+	 *
+	 * @param Page|PageArray|Page[] $items Page(s) having the map field
+	 * @param string|Field $fieldName Name of the MapMarkerPlus field
+	 * @param array $options See the class description
 	 * @return string
 	 * @throws WireException
-	 * 
+	 *
 	 */
-	public function getGMapScript() {
-		$url = 'https://maps.google.com/maps/api/js';
-		$key = $this->wire()->modules->get('FieldtypeMapMarker')->get('googleApiKey');
-		if($key) $url .= "?key=$key";
-		return "<script type='text/javascript' src='$url'></script>";
+	public function render($items, $fieldName, array $options = array()) {
+		$field = $this->getMapField($fieldName);
+		$fieldName = $field->name;
+		$options = array_merge($this->getOptionsForField($field), $options);
+		$this->n++;
+
+		if($items instanceof Page) $items = array($items);
+		if(!is_iterable($items)) throw new WireException('render() expects a Page or PageArray');
+
+		// MarkupGoogleMap compatibility: "type" => style
+		if($options['style'] === '' && $options['type'] !== '') $options['style'] = $this->styleFromType($options['type'], $options['provider']);
+
+		$markers = array();
+		$first = null;
+		foreach($items as $page) {
+			if(!$page instanceof Page) continue;
+			$marker = $page->get($fieldName);
+			if(!$marker instanceof MapMarkerPlus || !$marker->hasCoordinates()) continue;
+			if(!$first) $first = $marker;
+			$markers[] = $this->getMarkerData($page, $field, $marker, $options);
+		}
+
+		$lat = (float) $options['lat'];
+		$lng = (float) $options['lng'];
+		$zoom = (int) $options['zoom'];
+		if($first && $options['useMarkerSettings'] && (count($markers) === 1 || (!$lat && !$lng))) {
+			$lat = (float) $first->lat;
+			$lng = (float) $first->lng;
+			if($first->zoom > 0) $zoom = (int) $first->zoom;
+		}
+
+		$client = $field->type->getClientConfig($field, array(
+			'provider' => $options['provider'],
+			'style' => $options['style'],
+			'mode' => $options['mode'],
+			'overlays' => $options['overlays'],
+			'allowModeToggle' => $options['allowModeToggle'],
+			'allowStyleSwitch' => $options['allowStyleSwitch'],
+		));
+
+		$config = array_merge($client, array(
+			'center' => array('lat' => $lat, 'lng' => $lng),
+			'zoom' => $zoom,
+			'fit' => $options['fitToMarkers'] && count($markers) > 1,
+			'cluster' => $options['cluster'],
+			'popup' => (bool) $options['popup'],
+			'hoverBox' => $options['useHoverBox'] ? (string) $options['hoverBoxMarkup'] : '',
+			'icon' => (string) $options['icon'],
+			'iconHover' => (string) $options['iconHover'],
+			'scrollZoom' => (bool) $options['scrollZoom'],
+			'lazy' => (bool) $options['lazy'],
+		));
+
+		return $this->renderElement($config, $markers, $options);
 	}
 
 	/**
-	 * Render map markup
-	 * 
-	 * @param PageArray|Page $pageArray Page (or multiple pages in PageArray) containing map field
-	 * @param string $fieldName Name of the map field
-	 * @param array $options Options to adjust behavior
-	 * @return string
-	 * @throws WireException
-	 * 
+	 * Data of one marker for the map script
+	 *
+	 * Hook after to add or change data, i.e. an individual icon.
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param MapMarkerPlus $marker
+	 * @param array $options
+	 * @return array
+	 *
 	 */
-	public function render($pageArray, $fieldName, array $options = array()) {
-		$config = $this->wire()->config;
+	public function ___getMarkerData(Page $page, Field $field, MapMarkerPlus $marker, array $options) {
+		$data = array(
+			'lat' => (float) $marker->lat,
+			'lng' => (float) $marker->lng,
+			'title' => '',
+			'url' => '',
+			'id' => $page->id,
+		);
+		if($options['markerTitleField']) {
+			$title = $page->get($options['markerTitleField']);
+			$data['title'] = is_scalar($title) || (is_object($title) && method_exists($title, '__toString')) ? trim(strip_tags((string) $title)) : '';
+		}
+		if($options['markerLinkField']) {
+			$url = $page->get($options['markerLinkField']);
+			$data['url'] = is_string($url) ? $url : '';
+		}
+		$popup = '';
+		if(is_callable($options['popupCallback'])) {
+			$popup = (string) call_user_func($options['popupCallback'], $page, $marker);
+		} else if($options['popupField']) {
+			$value = $page->get($options['popupField']);
+			$popup = is_scalar($value) || (is_object($value) && method_exists($value, '__toString')) ? (string) $value : '';
+		}
+		if($popup !== '') $data['popup'] = $popup;
+		if(is_callable($options['markerCallback'])) {
+			$more = call_user_func($options['markerCallback'], $page, $marker);
+			if(is_array($more)) $data = array_merge($data, $more);
+		}
+		return $data;
+	}
 
-		static $n = 0; 
-		$n++;
+	/**
+	 * Map a MarkupGoogleMap "type" to a style of the provider
+	 *
+	 * @param string $type
+	 * @param string $provider
+	 * @return string
+	 *
+	 */
+	protected function styleFromType($type, $provider) {
+		$type = strtolower((string) $type);
+		if($provider === 'google') return $type;
+		if($provider === 'yandex') return $type === 'roadmap' || $type === 'terrain' ? 'scheme' : $type;
+		return $type === 'satellite' || $type === 'hybrid' ? 's2cloudless' : ($type === 'terrain' ? 'opentopomap' : 'osm');
+	}
 
-		$defaultOptions = $this->getOptions($fieldName); 
-		$options = array_merge($defaultOptions, $options); 
-		
-		if($pageArray instanceof Page) {
-			$page = $pageArray; 
-			$pageArray = new PageArray();
-			$pageArray->add($page); 
+	/**
+	 * The module script tag (once per request)
+	 *
+	 * @param bool $force Output even when already output
+	 * @return string
+	 *
+	 */
+	public function renderScript($force = false) {
+		if($this->scriptRendered && !$force) return '';
+		$this->scriptRendered = true;
+		$url = $this->wire()->config->urls('FieldtypeMapMarkerPlus') . 'assets/dist/frontend.js?v=' . FieldtypeMapMarkerPlus::version;
+		return "<script type='module' src='$url'></script>";
+	}
+
+	/**
+	 * Render the <map-marker-plus> element
+	 *
+	 * @param array $config Map configuration
+	 * @param array $markers Marker data
+	 * @param array $options Render options (id, class, attrs, width, height, useStyles, init, script)
+	 * @return string
+	 *
+	 */
+	public function renderElement(array $config, array $markers, array $options = array()) {
+		$sanitizer = $this->wire()->sanitizer;
+		$id = !empty($options['id']) ? (string) $options['id'] : 'mmpmap' . $this->n;
+		$attrs = array(
+			'id' => $id,
+			'class' => isset($options['class']) ? (string) $options['class'] : 'MarkupMapMarkerPlus',
+		);
+
+		$init = isset($options['init']) ? trim((string) $options['init']) : '';
+		$initCode = '';
+		if($init !== '') {
+			if(preg_match('/^[A-Za-z_$][\w$]*(\.[A-Za-z_$][\w$]*)*$/', $init)) {
+				$attrs['data-init'] = $init;
+			} else {
+				$initCode = $init;
+			}
 		}
 
-		$height = $options['height']; 
-		$width = $options['width'];
-		if(empty($height)) $height = 300; 
-		if(ctype_digit("$height")) $height .= "px";
-		if(ctype_digit("$width")) $width .= "px";
-
-		$style = '';	
-		if($options['useStyles'] && !empty($height) && !empty($width)) {
-			$style = " style='width: $width; height: $height;'"; 
-		}	
-
-		$lat = $options['lat'];
-		$lng = $options['lng'];
-		$zoom = $options['zoom'] > 0 ? (int) $options['zoom'] : $defaultOptions['zoom'];
-		$type = in_array($options['type'], array('ROADMAP', 'SATELLITE', 'HYBRID')) ? $options['type'] : 'HYBRID';
-
-		if($options['useMarkerSettings'] && (count($pageArray) == 1 || !$lat)) {
-			// single marker overrides lat, lng and zoom settings
-			$marker = $pageArray->first()->get($fieldName); 
-			$lat = $marker->lat; 
-			$lng = $marker->lng; 
-			if($marker->zoom > 0) $zoom = (int) $marker->zoom;
+		if(!isset($options['useStyles']) || $options['useStyles']) {
+			$width = isset($options['width']) ? (string) $options['width'] : '100%';
+			$height = isset($options['height']) ? (string) $options['height'] : '300';
+			if(ctype_digit($width)) $width .= 'px';
+			if(ctype_digit($height)) $height .= 'px';
+			$attrs['style'] = "display: block; width: $width; height: $height;";
 		}
 
-		$id = $options['id'];
+		if(!empty($options['attrs']) && is_array($options['attrs'])) {
+			foreach($options['attrs'] as $k => $v) {
+				$k = preg_replace('/[^-\w:]/', '', (string) $k);
+				if($k !== '') $attrs[$k] = $v;
+			}
+		}
+
+		$attrStr = '';
+		foreach($attrs as $k => $v) {
+			if($v === true) {
+				$attrStr .= " $k";
+			} else if($v !== false && $v !== null) {
+				$attrStr .= " $k=\"" . $sanitizer->entities((string) $v) . '"';
+			}
+		}
+
+		$json = json_encode(array('options' => $config, 'markers' => array_values($markers)),
+			JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
 		$out = '';
-
-		if($n === 1) {
-			$url = $config->urls('MarkupGoogleMap');
-			$out .= "<script type='text/javascript' src='{$url}MarkupGoogleMap.js'></script>";
+		if(!isset($options['script']) || $options['script']) $out .= $this->renderScript();
+		$out .= "<map-marker-plus$attrStr><script type=\"application/json\">$json</script></map-marker-plus>";
+		if($initCode !== '') {
+			$jsId = json_encode($id, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT);
+			$out .= "<script>document.getElementById($jsId).addEventListener('mmp:ready', function(event) { $initCode }.bind(document.getElementById($jsId)));</script>";
 		}
-
-		$out .= "<div id='$id' class='$options[class]'$style></div>";
-
-		$out .= 
-			"<script type='text/javascript'>" .
-			"if(typeof google === 'undefined' || typeof google.maps === 'undefined') { " . 
-			"alert('MarkupGoogleMap Error: Please add the maps.google.com script in your document head.'); " . 
-			"} else { " . 
-			"var $id = new MarkupGoogleMap(); " . 
-			"$id.setOption('zoom', $zoom); " . 
-			"$id.setOption('mapTypeId', google.maps.MapTypeId.$type); " . 
-			($options['icon'] ? "$id.setIcon('$options[icon]'); " : "") .
-			($options['iconHover'] ? "$id.setIconHover('$options[iconHover]'); " : "") . 
-			($options['shadow'] ? "$id.setShadow('$options[shadow]'); " : "") . 
-			($options['useHoverBox'] ? "$id.setHoverBox('" . str_replace("'", '"', $options['hoverBoxMarkup']) . "');" : "") . 
-			$options['init'] . 
-			"$id.init('$id', $lat, $lng); "; 
-
-		foreach($pageArray as $page) {
-			$marker = $page->get($fieldName); 
-			if(!$marker instanceof MapMarker) continue; 
-			if(!$marker->lat) continue; 
-			$url = $options['markerLinkField'] ? $page->get($options['markerLinkField']) : '';
-			$title = $options['markerTitleField'] ? $page->get($options['markerTitleField']) : ''; 
-			$out .= "$id.addMarker($marker->lat, $marker->lng, '$url', '$title', ''); ";
-		}
-
-		if(count($pageArray) > 1 && $options['fitToMarkers']) $out .= "$id.fitToMarkers(); ";
-		$out .= "}</script>";
-
-		return $out; 
+		return $out;
 	}
 }
