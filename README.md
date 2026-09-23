@@ -33,6 +33,7 @@ ProcessWire 3.0.200+, PHP 7.4+. No node on the server: the built scripts are in 
 |---|---|
 | Default map provider / geocoder | Used by fields set to "Default" |
 | Default latitude / longitude / zoom | Map view for empty values when the field has no default location |
+| Default map height | Height in pixels (450) for fields whose *Input* tab height is 0 |
 | Language | Two-letter code for geocoding results and map labels (blank: the user's language, if its name is a two-letter code) |
 | Geocode cache lifetime | Successful results are cached in WireCache (30 days by default) |
 | Google: Maps key, Geocoding key, Map ID | Browser key (restrict by referrer), server key (restrict by IP), Map ID for vector maps (3D, advanced markers) |

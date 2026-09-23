@@ -14,7 +14,7 @@
  * @property string $defaultLat Map center for empty values (blank = module default)
  * @property string $defaultLng
  * @property int $defaultZoom Zoom for empty values and markers without zoom (0 = module default)
- * @property int $height Map height in pixels
+ * @property int $height Map height in pixels (0 = module default)
  * @property array $clientConfig Map configuration from FieldtypeMapMarkerPlus::getClientConfig()
  *
  */
@@ -35,7 +35,7 @@ class InputfieldMapMarkerPlus extends Inputfield {
 		$this->set('defaultZoom', 0);
 		$this->set('defaultLat', '');
 		$this->set('defaultLng', '');
-		$this->set('height', 300);
+		$this->set('height', 0);
 		$this->set('clientConfig', array());
 		parent::__construct();
 	}
@@ -181,7 +181,7 @@ class InputfieldMapMarkerPlus extends Inputfield {
 		$checked = $geocodeOff ? '' : " checked='checked'";
 		$status = $geocodeOff ? 0 : (int) $marker->status;
 		$disabledGeocoder = $this->fieldtype()->getGeocoderName($this->hasField ?: null) === 'none';
-		$height = $this->height ? (int) $this->height : 300;
+		$height = (int) $this->height > 0 ? (int) $this->height : $this->fieldtype()->getDefaultHeight();
 		$mapConfig = $this->encodeJson($this->getMapConfig());
 
 		$toggle = $disabledGeocoder ? '' : "
@@ -407,6 +407,7 @@ class InputfieldMapMarkerPlus extends Inputfield {
 		$f = $modules->get('InputfieldInteger');
 		$f->attr('name', 'height');
 		$f->label = $this->_('Map height (in pixels)');
+		$f->description = sprintf($this->_('0 = module default (%d)'), $this->fieldtype()->getDefaultHeight());
 		$f->attr('value', (int) $this->height);
 		$f->attr('type', 'number');
 		$f->columnWidth = 50;

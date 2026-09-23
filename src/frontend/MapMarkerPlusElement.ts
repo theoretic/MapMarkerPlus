@@ -153,7 +153,7 @@ export class MapMarkerPlusElement extends HTMLElement {
     const provider = (o.provider ?? 'maplibre') as ProviderId;
 
     if (getComputedStyle(this).display === 'inline') this.style.display = 'block';
-    if (this.clientHeight === 0 && !this.style.height) this.style.height = '300px';
+    if (this.clientHeight === 0 && !this.style.height) this.style.height = '450px';
     this.classList.add('mmp-root');
     this.style.position ||= 'relative';
     this.mapEl = el('div', { class: 'mmp-map' });

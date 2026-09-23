@@ -25,6 +25,7 @@ The template API is unchanged.
   `markerCallback`, `scrollZoom`, `lazy`, `attrs`; hook `MarkupMapMarkerPlus::getMarkerData`.
 - Selectors on `lat`, `lng`, `zoom`, `status` subfields; `___markupValue()` for Lister.
 - Array values: `$page->map = ['lat' => .., 'lng' => ..]`.
+- Module setting "Default map height" (450 px, was a fixed 300 px); the field height on the Input tab is optional (0 = module default).
 
 ### Changed
 - Coordinates are `DECIMAL(10,7)` (were `FLOAT(10,6)`, single precision). Converted and upgraded tables

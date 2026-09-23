@@ -29,6 +29,7 @@
  * @property string $defaultLat
  * @property string $defaultLng
  * @property int $defaultZoom
+ * @property int $defaultHeight Map height in pixels for fields without their own height
  * @property string $geocodeLang
  * @property int $cacheTtl
  * @property string $terrainTiles
@@ -121,6 +122,7 @@ class FieldtypeMapMarkerPlus extends Fieldtype implements ConfigurableModule {
 			'defaultLat' => '20',
 			'defaultLng' => '0',
 			'defaultZoom' => 2,
+			'defaultHeight' => 450,
 			'geocodeLang' => '',
 			'cacheTtl' => 2592000,
 			'terrainTiles' => 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png',
@@ -787,6 +789,27 @@ class FieldtypeMapMarkerPlus extends Fieldtype implements ConfigurableModule {
 	}
 
 	/**
+	 * Map height in pixels for a field: the field's own height, else the module default
+	 *
+	 * @param Field|null $field
+	 * @return int
+	 *
+	 */
+	public function getMapHeight(?Field $field = null) {
+		$height = $field ? (int) $field->get('height') : 0;
+		return $height > 0 ? $height : $this->getDefaultHeight();
+	}
+
+	/**
+	 * @return int
+	 *
+	 */
+	public function getDefaultHeight() {
+		$height = (int) $this->defaultHeight;
+		return $height >= 100 ? $height : 450;
+	}
+
+	/**
 	 * Language code for geocoding and map labels
 	 *
 	 * @return string Two-letter code
@@ -1104,6 +1127,16 @@ class FieldtypeMapMarkerPlus extends Fieldtype implements ConfigurableModule {
 		$f->columnWidth = 34;
 		$fs->add($f);
 		$fs->notes = $this->_('Map view for empty values, when the field has no defaults of its own.');
+
+		/** @var InputfieldInteger $f */
+		$f = $modules->get('InputfieldInteger');
+		$f->attr('name', 'defaultHeight');
+		$f->label = $this->_('Default map height (in pixels)');
+		$f->description = $this->_('Used by the page editor and by MarkupMapMarkerPlus for fields without a height of their own (field > Input tab).');
+		$f->attr('value', $this->getDefaultHeight());
+		$f->attr('min', 100);
+		$f->columnWidth = 50;
+		$fs->add($f);
 
 		$f = $text($fs, 'geocodeLang', $this->_('Language'), $this->_('Two-letter code for geocoding results and map labels. Blank = language of the current user when its name is a two-letter code, else "en".'), 50);
 		/** @var InputfieldInteger $f */

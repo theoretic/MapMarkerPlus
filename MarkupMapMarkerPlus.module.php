@@ -22,7 +22,7 @@
  * OPTIONS (defaults come from the field settings)
  * =======
  *
- * width, height              CSS sizes, integers are pixels (default: 100%, field height)
+ * width, height              CSS sizes, integers are pixels (default: 100%, field height or module default height)
  * zoom                       Zoom level (default: field default zoom)
  * lat, lng                   Map center (default: field default location)
  * provider                   maplibre|google|yandex (default: field setting)
@@ -135,7 +135,7 @@ class MarkupMapMarkerPlus extends WireData implements Module {
 		if($zoom < 1) $zoom = $hasDefault ? 12 : (int) $fieldtype->defaultZoom;
 		return array(
 			'width' => '100%',
-			'height' => $field->get('height') ? (int) $field->get('height') : 300,
+			'height' => $fieldtype->getMapHeight($field),
 			'zoom' => $zoom,
 			'lat' => $hasDefault ? (float) $lat : (float) $fieldtype->defaultLat,
 			'lng' => $hasDefault ? (float) $lng : (float) $fieldtype->defaultLng,
@@ -337,7 +337,7 @@ class MarkupMapMarkerPlus extends WireData implements Module {
 
 		if(!isset($options['useStyles']) || $options['useStyles']) {
 			$width = isset($options['width']) ? (string) $options['width'] : '100%';
-			$height = isset($options['height']) ? (string) $options['height'] : '300';
+			$height = isset($options['height']) ? (string) $options['height'] : '450';
 			if(ctype_digit($width)) $width .= 'px';
 			if(ctype_digit($height)) $height .= 'px';
 			$attrs['style'] = "display: block; width: $width; height: $height;";
