@@ -374,6 +374,7 @@ class FieldtypeMapMarkerPlus extends Fieldtype implements ConfigurableModule {
 		if(count($alter)) {
 			try {
 				$database->exec("ALTER TABLE `$table` " . implode(', ', $alter));
+				if(strpos(implode(' ', $alter), 'MODIFY') !== false) $this->roundLegacyCoordinates($field);
 				$this->message(sprintf($this->_('Updated table %1$s: %2$s'), $table, implode(', ', $done)));
 			} catch(\Exception $e) {
 				$this->error($e->getMessage());
@@ -385,6 +386,21 @@ class FieldtypeMapMarkerPlus extends Fieldtype implements ConfigurableModule {
 			$field->save();
 		}
 		return $done;
+	}
+
+	/**
+	 * Round coordinates that came from FLOAT(10,6) columns to 6 decimals
+	 *
+	 * FLOAT is single precision: 43.256712 is stored as 43.2567139..., which DECIMAL(10,7) would show.
+	 * Rounding restores what the old columns displayed, so templates print the same values as before.
+	 *
+	 * @param Field $field
+	 *
+	 */
+	protected function roundLegacyCoordinates(Field $field) {
+		$database = $this->wire()->database;
+		$table = $database->escapeTable($field->getTable());
+		$database->exec("UPDATE `$table` SET lat = ROUND(lat, 6), lng = ROUND(lng, 6)");
 	}
 
 	/**
@@ -1014,6 +1030,7 @@ class FieldtypeMapMarkerPlus extends Fieldtype implements ConfigurableModule {
 		/** @var MapMarkerPlusMigration $migration */
 		$migration = $this->wire(new MapMarkerPlusMigration());
 		$notes = $migration->apply($field, $old, $fromType, $this->getModuleConfig());
+		$this->roundLegacyCoordinates($field);
 		$this->message(sprintf($this->_('Field "%1$s" converted from %2$s.'), $field->name, $fromType) . ' ' . implode(' ', $notes));
 	}
 
