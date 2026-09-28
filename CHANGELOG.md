@@ -25,10 +25,14 @@ The template API is unchanged.
   `markerCallback`, `scrollZoom`, `lazy`, `attrs`; hook `MarkupMapMarkerPlus::getMarkerData`.
 - Selectors on `lat`, `lng`, `zoom`, `status` subfields; `___markupValue()` for Lister.
 - Array values: `$page->map = ['lat' => .., 'lng' => ..]`.
+- Module setting "Map in the page editor": MapLibre (default) or the field's provider, so fields that show
+  Google or Yandex on the frontend don't need those keys in the admin.
+- Free tier and terms notes for Google and Yandex in the module settings and `docs/providers.md`.
 - Module setting "Ctrl + scroll to zoom" (off by default: the mouse wheel zooms the map directly).
 - Module setting "Default map height" (450 px, was a fixed 300 px); the field height on the Input tab is optional (0 = module default).
 
 ### Changed
+- Google Maps and Yandex Maps support (maps and geocoders) is marked experimental in labels, settings and the page editor.
 - Coordinates are `DECIMAL(10,7)` (were `FLOAT(10,6)`, single precision). Converted and upgraded tables
   are rounded to 6 decimals once, so existing values print as before.
 - `(string) $value` is "address (lat, lng)" (was "address (lat, lng, zoom) [status]").

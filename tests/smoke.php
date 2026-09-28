@@ -208,6 +208,26 @@ $post = array('mmp_test' => 'Dragged here', '_mmp_test_lat' => '', '_mmp_test_ln
 $in->processInput(new WireInputData($post));
 check('unchecked toggle = -100, half coordinate cleared', $val2->status === MapMarkerPlus::statusNoGeocode && !$val2->hasCoordinates());
 
+echo "== admin provider / experimental\n";
+check('MapLibre + fake geocoder: no experimental note', strpos($out, 'InputfieldMapMarkerPlusNote') === false);
+$fieldGx = clone $field;
+$fieldGx->set('mapProvider', 'google');
+$fieldGx->set('geocoder', 'yandex');
+check('admin map defaults to MapLibre for a Google field', $ft->getAdminMapProvider($fieldGx) === 'maplibre' && $ft->getMapProvider($fieldGx) === 'google');
+$inG = $ft->getInputfield($page, $fieldGx);
+check('inputfield client config uses the admin provider', $inG->clientConfig['provider'] === 'maplibre' && isset($inG->clientConfig['sources']));
+$inG->hasField = $fieldGx;
+$inG->attr('name', 'mmp_g');
+$inG->attr('value', $ft->getBlankValue($page, $fieldGx));
+$outG = $inG->render();
+check('experimental note next to the inputs', strpos($outG, 'InputfieldMapMarkerPlusNote') !== false && strpos($outG, 'Google Maps map on the frontend') !== false && strpos($outG, 'Yandex geocoder') !== false);
+$ft->set('adminMapProvider', 'field');
+check('admin provider "field" follows the field', $ft->getAdminMapProvider($fieldGx) === 'google' && $ft->getInputfield($page, $fieldGx)->clientConfig['provider'] === 'google');
+$ft->set('adminMapProvider', 'maplibre');
+$labels = $ft->getProviderLabels();
+check('provider labels mark Google/Yandex experimental', strpos($labels['google'], 'experimental') !== false && strpos($labels['yandex'], 'experimental') !== false && strpos($labels['maplibre'], 'experimental') === false);
+check('geocoder labels mark Google/Yandex experimental', strpos($ft->getGeocoderLabel('yandex'), 'experimental') !== false && strpos($ft->getGeocoderLabel('photon'), 'experimental') === false);
+
 echo "== endpoint\n";
 $users = $wire->users;
 $users->setCurrentUser($users->getGuestUser());

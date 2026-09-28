@@ -9,8 +9,8 @@ existing FieldtypeMapMarker and FieldtypeLeafletMapMarker fields can be converte
 
 | | |
 |---|---|
-| Map providers | **MapLibre** (atis.pro [map-engine](https://github.com/theoretic/map-engine), OSM-based raster styles, 3D terrain), **Google Maps**, **Yandex Maps** |
-| Geocoders | **Photon** (default, no key), **Nominatim**, **Google**, **Yandex**, **MapTiler**, your own via hook |
+| Map providers | **MapLibre** (atis.pro [map-engine](https://github.com/theoretic/map-engine), OSM-based raster styles, 3D terrain), **Google Maps** (experimental), **Yandex Maps** (experimental) |
+| Geocoders | **Photon** (default, no key), **Nominatim**, **Google** (experimental), **Yandex** (experimental), **MapTiler**, your own via hook |
 | 2D / 3D | MapLibre: terrain + pitch · Google: tilt on a vector map (Map ID) · Yandex: camera tilt |
 | Frontend | `MarkupMapMarkerPlus::render()` or the `<map-marker-plus>` web component: markers, clustering, popups, hover box |
 
@@ -32,19 +32,25 @@ ProcessWire 3.0.200+, PHP 7.4+. No node on the server: the built scripts are in 
 | Setting | Use |
 |---|---|
 | Default map provider / geocoder | Used by fields set to "Default" |
+| Map in the page editor | MapLibre (default) or the field's provider. Frontend maps always use the field's provider |
 | Default latitude / longitude / zoom | Map view for empty values when the field has no default location |
 | Default map height | Height in pixels (450) for fields whose *Input* tab height is 0 |
 | Ctrl + scroll to zoom | Off: the mouse wheel zooms the map. On: only Ctrl + wheel zooms (Yandex: wheel zoom off) |
 | Language | Two-letter code for geocoding results and map labels (blank: the user's language, if its name is a two-letter code) |
 | Geocode cache lifetime | Successful results are cached in WireCache (30 days by default) |
 | Google: Maps key, Geocoding key, Map ID | Browser key (restrict by referrer), server key (restrict by IP), Map ID for vector maps (3D, advanced markers) |
-| Yandex: JavaScript API key, Geocoder key | Separate products, separate keys |
+| Yandex: JavaScript API key, Geocoder key | One key per product (keys made before 20 April 2025 cover both) |
 | Photon / Nominatim URL, Nominatim e-mail | Self-hosted instances; the public Nominatim needs an e-mail and allows 1 request/second |
 | MapTiler, Carto, openAIP keys | Unlock the MapTiler geocoder and styles, Carto Voyager, the openAIP overlay |
 | 3D terrain | Elevation tiles for MapLibre 3D (default: AWS Terrarium), encoding, exaggeration |
 
 Keys for geocoding never reach the browser: the admin geocodes through `/mapmarkerplus/geocode/`
 (POST, logged-in users with `page-edit`, CSRF protected).
+
+**Google Maps and Yandex Maps support is experimental**: not yet tested with real keys, and their free terms
+are restrictive. Neither free tier allows keeping geocoded coordinates in the database, and free Yandex
+keys may not be used behind a login. See [free tiers and terms](docs/providers.md#free-tiers-and-terms).
+MapLibre with Photon or Nominatim needs no key and allows storing coordinates.
 
 ## Map styles
 

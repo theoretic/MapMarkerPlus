@@ -17,7 +17,7 @@
  * @property string $googleGeocodingKey Server key for the Google Geocoding API (falls back to googleMapsKey)
  * @property string $googleMapId Map ID, needed for vector maps (tilt, 3D) and advanced markers
  * @property string $yandexMapsKey Key for Yandex Maps JavaScript API v3
- * @property string $yandexGeocoderKey Key for the Yandex HTTP Geocoder (falls back to yandexMapsKey)
+ * @property string $yandexGeocoderKey Key for the Yandex Geocoder API (falls back to yandexMapsKey, works for keys made before 2025-04-20)
  * @property string $maptilerKey
  * @property string $cartoKey
  * @property string $openaipKey
@@ -25,6 +25,7 @@
  * @property string $nominatimEmail
  * @property string $photonUrl
  * @property string $defaultMapProvider maplibre|google|yandex
+ * @property string $adminMapProvider maplibre|field: map provider of the page editor
  * @property string $defaultGeocoder photon|nominatim|google|yandex|maptiler|none
  * @property string $defaultLat
  * @property string $defaultLng
@@ -65,6 +66,12 @@ class FieldtypeMapMarkerPlus extends Fieldtype implements ConfigurableModule {
 	const providers = array('maplibre', 'google', 'yandex');
 
 	const defaultStyles = array('maplibre' => 'osm', 'google' => 'roadmap', 'yandex' => 'scheme');
+
+	/**
+	 * Map providers and geocoders whose support is experimental (untested with real keys, restrictive free terms)
+	 *
+	 */
+	const experimental = array('google', 'yandex');
 
 	public static function getModuleInfo() {
 		return array(
@@ -119,6 +126,7 @@ class FieldtypeMapMarkerPlus extends Fieldtype implements ConfigurableModule {
 			'nominatimEmail' => '',
 			'photonUrl' => 'https://photon.komoot.io',
 			'defaultMapProvider' => 'maplibre',
+			'adminMapProvider' => 'maplibre',
 			'defaultGeocoder' => 'photon',
 			'defaultLat' => '20',
 			'defaultLng' => '0',
@@ -177,7 +185,7 @@ class FieldtypeMapMarkerPlus extends Fieldtype implements ConfigurableModule {
 	public function getInputfield(Page $page, Field $field) {
 		/** @var InputfieldMapMarkerPlus $inputfield */
 		$inputfield = $this->wire()->modules->get('InputfieldMapMarkerPlus');
-		$inputfield->set('clientConfig', $this->getClientConfig($field));
+		$inputfield->set('clientConfig', $this->getClientConfig($field, array('provider' => $this->getAdminMapProvider($field))));
 		return $inputfield;
 	}
 
@@ -495,6 +503,9 @@ class FieldtypeMapMarkerPlus extends Fieldtype implements ConfigurableModule {
 		}
 		$f->attr('value', $field->get('mapProvider') ?: 'default');
 		$f->required = true;
+		$f->notes = $this->experimentalNote() . ' ' . ($this->adminMapProvider === 'field'
+			? $this->_('The page editor uses this provider too (module setting "Map in the page editor").')
+			: $this->_('The page editor always shows MapLibre (module setting "Map in the page editor").'));
 		$f->columnWidth = 50;
 		$fs->add($f);
 
@@ -517,9 +528,11 @@ class FieldtypeMapMarkerPlus extends Fieldtype implements ConfigurableModule {
 			foreach($this->getMapStyles($provider) as $id => $label) $f->addOption($id, $label);
 			$f->attr('value', $this->getMapStyle($field, $provider));
 			$f->required = true;
-			$f->showIf = "mapProvider=$provider" . ($provider === $defaultProvider ? '|default' : '');
+			$adminMapLibre = $provider === 'maplibre' && $this->adminMapProvider !== 'field';
+			if(!$adminMapLibre) $f->showIf = "mapProvider=$provider" . ($provider === $defaultProvider ? '|default' : '');
 			if($provider === 'maplibre') {
-				$f->notes = $this->_('Esri tiles may be blocked for some hosts. Sentinel-2 and kk7 layers are licensed for non-commercial use only. Carto and MapTiler styles appear when their keys are set in the module settings.');
+				$f->notes = ($adminMapLibre ? $this->_('Also used for the map in the page editor.') . ' ' : '') .
+					$this->_('Esri tiles may be blocked for some hosts. Sentinel-2 and kk7 layers are licensed for non-commercial use only. Carto and MapTiler styles appear when their keys are set in the module settings.');
 			}
 			$f->columnWidth = 50;
 			$fs->add($f);
@@ -531,7 +544,11 @@ class FieldtypeMapMarkerPlus extends Fieldtype implements ConfigurableModule {
 		$f->label = $this->_('MapLibre overlays');
 		foreach($this->getMapOverlays() as $id => $label) $f->addOption($id, $label);
 		$f->attr('value', (array) $field->get('mapOverlays'));
-		$f->showIf = 'mapProvider=maplibre' . ($defaultProvider === 'maplibre' ? '|default' : '');
+		if($this->adminMapProvider === 'field') {
+			$f->showIf = 'mapProvider=maplibre' . ($defaultProvider === 'maplibre' ? '|default' : '');
+		} else {
+			$f->notes = $this->_('Also used for the map in the page editor.');
+		}
 		$f->columnWidth = 50;
 		$fs->add($f);
 
@@ -561,11 +578,13 @@ class FieldtypeMapMarkerPlus extends Fieldtype implements ConfigurableModule {
 		foreach(array_keys($this->getGeocoders()) as $name) {
 			$geocoder = $this->getGeocoder($name);
 			if(!$geocoder) continue;
-			$label = $geocoder->getTitle();
+			$label = $this->getGeocoderLabel($name);
 			if(!$geocoder->isConfigured()) $label .= ' ' . $this->_('(key missing in module settings)');
 			$f->addOption($name, $label);
 		}
 		$f->attr('value', (string) $field->get('geocoder'));
+		$f->notes = $this->experimentalNote() . ' ' .
+			$this->_('The free terms of Google and Yandex do not allow keeping geocoded coordinates (Google: 30 days at most, and only on Google maps; Yandex: not at all). Photon and Nominatim (OpenStreetMap) do. Details in the module settings.');
 		$inputfields->add($f);
 
 		return $inputfields;
@@ -594,10 +613,11 @@ class FieldtypeMapMarkerPlus extends Fieldtype implements ConfigurableModule {
 	 *
 	 */
 	public function getProviderLabels() {
+		$exp = ' ' . $this->_('(experimental)');
 		return array(
 			'maplibre' => $this->_('MapLibre (map-engine, OSM-based tiles)'),
-			'google' => $this->_('Google Maps'),
-			'yandex' => $this->_('Yandex Maps'),
+			'google' => $this->_('Google Maps') . $exp,
+			'yandex' => $this->_('Yandex Maps') . $exp,
 		);
 	}
 
@@ -633,6 +653,38 @@ class FieldtypeMapMarkerPlus extends Fieldtype implements ConfigurableModule {
 	public function getMapProvider(?Field $field = null) {
 		$p = $field ? (string) $field->get('mapProvider') : '';
 		return in_array($p, self::providers, true) ? $p : $this->getDefaultProvider();
+	}
+
+	/**
+	 * Map provider of the page editor: MapLibre (module setting default) or the field's provider
+	 *
+	 * @param Field|null $field
+	 * @return string maplibre|google|yandex
+	 *
+	 */
+	public function getAdminMapProvider(?Field $field = null) {
+		return $this->adminMapProvider === 'field' ? $this->getMapProvider($field) : 'maplibre';
+	}
+
+	/**
+	 * Is the support of this map provider or geocoder experimental?
+	 *
+	 * @param string $name Map provider or geocoder name
+	 * @return bool
+	 *
+	 */
+	public function isExperimental($name) {
+		return in_array((string) $name, self::experimental, true);
+	}
+
+	/**
+	 * Note shown next to the provider and geocoder settings and in the page editor
+	 *
+	 * @return string
+	 *
+	 */
+	public function experimentalNote() {
+		return $this->_('Google Maps and Yandex Maps support is experimental.');
 	}
 
 	/**
@@ -860,7 +912,9 @@ class FieldtypeMapMarkerPlus extends Fieldtype implements ConfigurableModule {
 	public function getGeocoderLabel($name) {
 		if($name === 'none') return $this->_('None');
 		$geocoder = $this->getGeocoder($name);
-		return $geocoder ? $geocoder->getTitle() : (string) $name;
+		$label = $geocoder ? $geocoder->getTitle() : (string) $name;
+		if($this->isExperimental($name)) $label .= ' ' . $this->_('(experimental)');
+		return $label;
 	}
 
 	/**
@@ -1104,6 +1158,7 @@ class FieldtypeMapMarkerPlus extends Fieldtype implements ConfigurableModule {
 		foreach($this->getProviderLabels() as $name => $label) $f->addOption($name, $label);
 		$f->attr('value', $this->getDefaultProvider());
 		$f->required = true;
+		$f->notes = $this->experimentalNote();
 		$f->columnWidth = 50;
 		$fs->add($f);
 
@@ -1115,7 +1170,19 @@ class FieldtypeMapMarkerPlus extends Fieldtype implements ConfigurableModule {
 		foreach(array_keys($this->getGeocoders()) as $name) $f->addOption($name, $this->getGeocoderLabel($name));
 		$f->attr('value', (string) $this->defaultGeocoder);
 		$f->required = true;
+		$f->notes = $this->experimentalNote();
 		$f->columnWidth = 50;
+		$fs->add($f);
+
+		/** @var InputfieldRadios $f */
+		$f = $modules->get('InputfieldRadios');
+		$f->attr('name', 'adminMapProvider');
+		$f->label = $this->_('Map in the page editor');
+		$f->addOption('maplibre', $this->_('MapLibre (recommended: no keys, allowed behind a login)'));
+		$f->addOption('field', $this->_("Same as the field's map provider"));
+		$f->attr('value', $this->adminMapProvider === 'field' ? 'field' : 'maplibre');
+		$f->notes = $this->_("The free Yandex Maps terms do not allow use behind a login, and every page edit counts as a Google map load. Frontend maps always use the field's provider.");
+		$f->optionColumns = 1;
 		$fs->add($f);
 
 		$text($fs, 'defaultLat', $this->_('Default latitude'), '', 33);
@@ -1162,15 +1229,21 @@ class FieldtypeMapMarkerPlus extends Fieldtype implements ConfigurableModule {
 		$fs->add($f);
 
 		$fs = $fieldset('Google', 'google', $this->googleMapsKey === '');
-		$fs->description = sprintf($this->_('[Get an API key](%s). Restrict the browser key by HTTP referrer and the geocoding key by IP.'), 'https://developers.google.com/maps/documentation/javascript/get-api-key');
+		$fs->description = $this->experimentalNote() . ' ' .
+			sprintf($this->_('[Get an API key](%s). Restrict the browser key by HTTP referrer and the geocoding key by IP.'), 'https://developers.google.com/maps/documentation/javascript/get-api-key');
+		$fs->notes = sprintf($this->_('Terms (checked September 2026, may change): a billing account with a payment method is required. Free per month: 10,000 map loads, 10,000 geocoding requests, 10,000 static maps ([pricing](%1$s)). Geocoded coordinates may be cached for 30 days at most and must not be shown on a non-Google map ([service terms](%2$s)), so the Google geocoder does not suit fields that keep coordinates.'),
+			'https://developers.google.com/maps/billing-and-pricing/pricing', 'https://cloud.google.com/maps-platform/terms/maps-service-terms');
 		$text($fs, 'googleMapsKey', $this->_('Maps JavaScript API key (browser)'), '', 50, true);
 		$text($fs, 'googleGeocodingKey', $this->_('Geocoding API key (server)'), $this->_('Blank = use the browser key.'), 50, true);
 		$text($fs, 'googleMapId', $this->_('Map ID'), $this->_('Needed for vector maps: tilt/rotation (3D mode) and advanced markers.'));
 
 		$fs = $fieldset('Yandex', 'map-o', $this->yandexMapsKey === '');
-		$fs->description = sprintf($this->_('[Developer dashboard](%s). The JavaScript API and the HTTP Geocoder are separate products with separate keys.'), 'https://developer.tech.yandex.ru/');
+		$fs->description = $this->experimentalNote() . ' ' .
+			sprintf($this->_('[Developer dashboard](%s). Each product (JavaScript API, Geocoder API, ...) is connected separately and gets its own key.'), 'https://developer.tech.yandex.ru/');
+		$fs->notes = sprintf($this->_('Terms (checked September 2026, may change): free per day: JavaScript API 500 requests, Geocoder 1,000 ([tariffs](%1$s)). Free use only on sites anyone can open without registration or payment, so not in the page editor; data received from the API must not be stored; the Yandex logo and copyrights must stay visible; a key that exceeds the limits repeatedly is blocked for good ([conditions](%2$s)). Without a paid plan the Yandex geocoder does not suit fields that keep coordinates.'),
+			'https://yandex.ru/maps-api/tariffs', 'https://yandex.ru/dev/commercial/doc/ru/');
 		$text($fs, 'yandexMapsKey', $this->_('JavaScript API v3 key'), '', 50, true);
-		$text($fs, 'yandexGeocoderKey', $this->_('HTTP Geocoder key'), $this->_('Blank = use the JavaScript API key.'), 50, true);
+		$text($fs, 'yandexGeocoderKey', $this->_('Geocoder API key'), $this->_('Blank = use the JavaScript API key (only keys created before 20 April 2025 cover both products).'), 50, true);
 
 		$fs = $fieldset($this->_('OpenStreetMap geocoders'), 'globe', true);
 		$text($fs, 'photonUrl', $this->_('Photon URL'), '', 50);

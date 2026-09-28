@@ -103,7 +103,10 @@ class InputfieldMapMarkerPlus extends Inputfield {
 		$marker = $this->marker();
 
 		$client = $this->clientConfig;
-		if(!is_array($client) || empty($client)) $client = $fieldtype->getClientConfig($this->hasField ?: null);
+		if(!is_array($client) || empty($client)) {
+			$field = $this->hasField ?: null;
+			$client = $fieldtype->getClientConfig($field, array('provider' => $fieldtype->getAdminMapProvider($field)));
+		}
 
 		$defaultLat = MapMarkerPlus::sanitizeCoordinate($this->defaultLat, 90);
 		$defaultLng = MapMarkerPlus::sanitizeCoordinate($this->defaultLng, 180);
@@ -216,6 +219,9 @@ class InputfieldMapMarkerPlus extends Inputfield {
 		<div class='InputfieldMapMarkerPlusMap' id='_{$id}_map' style='height: {$height}px' data-config='$mapConfig'></div>
 		<p class='InputfieldMapMarkerPlusStatus detail' aria-live='polite'>" . $sanitizer->entities($this->statusLine($marker)) . "</p>";
 
+		$note = $this->experimentalNote();
+		if($note !== '') $out .= "<p class='InputfieldMapMarkerPlusNote notes'>" . $sanitizer->entities($note) . "</p>";
+
 		if($config->ajax) {
 			// inputfields rendered by ajax don't get their assets from $config->scripts/styles
 			$url = $config->urls('InputfieldMapMarkerPlus');
@@ -245,12 +251,36 @@ class InputfieldMapMarkerPlus extends Inputfield {
 	}
 
 	/**
+	 * Note about experimental providers used by this field (frontend map, page editor map, geocoder)
+	 *
+	 * @return string Blank when the field uses none
+	 *
+	 */
+	public function experimentalNote() {
+		$fieldtype = $this->fieldtype();
+		$field = $this->hasField ?: null;
+		$labels = array('google' => 'Google Maps', 'yandex' => 'Yandex Maps');
+		$uses = array();
+		$frontend = $fieldtype->getMapProvider($field);
+		$admin = $fieldtype->getAdminMapProvider($field);
+		$geocoder = $fieldtype->getGeocoderName($field);
+		if($fieldtype->isExperimental($frontend)) {
+			$uses[] = sprintf($admin === $frontend ? $this->_('%s map') : $this->_('%s map on the frontend'), $labels[$frontend]);
+		}
+		if($fieldtype->isExperimental($geocoder)) {
+			$uses[] = sprintf($this->_('%s geocoder'), $geocoder === 'google' ? 'Google' : 'Yandex');
+		}
+		if(!count($uses)) return '';
+		return sprintf($this->_('This field uses: %s.'), implode(', ', $uses)) . ' ' . $fieldtype->experimentalNote();
+	}
+
+	/**
 	 * Tell superusers when the map provider has no key
 	 *
 	 */
 	protected function warnMissingKey() {
 		$fieldtype = $this->fieldtype();
-		$provider = $fieldtype->getMapProvider($this->hasField ?: null);
+		$provider = $fieldtype->getAdminMapProvider($this->hasField ?: null);
 		if($fieldtype->providerIsConfigured($provider)) return;
 		$msg = sprintf($this->_('Please set up the %s API key in the MapMarkerPlus module settings'), $provider === 'google' ? 'Google Maps' : 'Yandex Maps');
 		$user = $this->wire()->user;

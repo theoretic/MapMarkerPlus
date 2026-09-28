@@ -46,6 +46,11 @@ CLI bootstraps of davinci need `$_SERVER['DOCUMENT_ROOT']` set (StaticPages conf
 
 ## Constraints
 
+- Google/Yandex maps and geocoders are **experimental** (`FieldtypeMapMarkerPlus::experimental`, labels + notes):
+  untested with real keys; their free terms forbid keeping geocoded coordinates, Yandex free keys forbid use behind a
+  login. Terms summary: `docs/providers.md#free-tiers-and-terms`. The page editor uses `getAdminMapProvider()`
+  (module setting `adminMapProvider`, default `maplibre`); frontend maps use `getMapProvider()`.
+
 - Template API of upstream must keep working: `->address`, `->lat`, `->lng`, `->zoom`, `->status`, `->statusString`;
   `lat`/`lng` are strings, `''` when unknown.
 - `getDatabaseSchema()` must stay side-effect free: `Fields::changeFieldtype()` calls it for a `_PWTMP` clone that shares
