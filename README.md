@@ -9,7 +9,7 @@ existing FieldtypeMapMarker and FieldtypeLeafletMapMarker fields can be converte
 
 | | |
 |---|---|
-| Map providers | **MapLibre** (atis.pro [map-engine](https://github.com/theoretic/map-engine), OSM-based raster styles, 3D terrain), **Google Maps** (experimental), **Yandex Maps** (experimental) |
+| Map providers | **MapLibre** (atis.pro map engine, OSM-based raster styles, 3D terrain), **Google Maps** (experimental), **Yandex Maps** (experimental) |
 | Geocoders | **Photon** (default, no key), **Nominatim**, **Google** (experimental), **Yandex** (experimental), **MapTiler**, your own via hook |
 | 2D / 3D | MapLibre: terrain + pitch · Google: tilt on a vector map (Map ID) · Yandex: camera tilt |
 | Frontend | `MarkupMapMarkerPlus::render()` or the `<map-marker-plus>` web component: markers, clustering, popups, hover box |
